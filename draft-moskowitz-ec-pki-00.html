@@ -2456,10 +2456,10 @@ openssl ocsp -CAfile $dir/certs/ca-chain.cert.pem \
  way to index them in a data store.  It has taken on other roles,
  most notably as a defense.<a href="#section-10.1-1" class="pilcrow">¶</a></p>
 <p id="section-10.1-2">
- The CABForum guideline for a public CA is for the serial number to 
- be a random number at least 8 octets long and no longer than 20 
- bytes. By default, openssl makes self-signed certificates with 8 
- octet serial numbers.  This guide uses openssl's RAND function to 
+ The CABForum guideline for a public CA and <span><a href="https://rfc-editor.org/rfc/rfc5280#section-4.1.2.2" class="relref">Section 4.1.2.2</a> of [<a href="#RFC5280" class="cite xref">RFC5280</a>]</span> is for the serial number to be 
+ a random number at least 8 octets long and no longer than 20 bytes. 
+ By default, openssl makes self-signed certificates with 8 octet 
+ serial numbers.  This guide uses openssl's RAND function to 
  generate the random value and pipe it into the -set_serial option. 
  This number MAY have the first bit as a ONE; the DER encoding rules 
  prepend such numbers with 0x00.  Thus increasing the actual 
@@ -2542,7 +2542,7 @@ printf "%016X\n" $((16#$(openssl rand -hex 8) &amp; 0x7fffffffffffffff))\
 <a href="#section-10.4" class="section-number selfRef">10.4. </a><a href="#name-certificates-with-only-subj" class="section-name selfRef">Certificates with only subjectAltName</a>
         </h3>
 <p id="section-10.4-1">
- In <span><a href="#RFC5280" class="internal xref">RFC 5280</a> [<a href="#RFC5280" class="cite xref">RFC5280</a>]</span> (sec 4.2.1.6):  if
+ In <span><a href="https://rfc-editor.org/rfc/rfc5280#section-4.2.1.6" class="relref">Section 4.2.1.6</a> of [<a href="#RFC5280" class="cite xref">RFC5280</a>]</span>:  if
  the only subject identity in the certificate is in subjectAltName,
  then Subject MUST be empty and subjectAltName MUST be marked as
  critical.<a href="#section-10.4-1" class="pilcrow">¶</a></p>

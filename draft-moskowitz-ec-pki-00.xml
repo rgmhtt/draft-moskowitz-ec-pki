@@ -904,10 +904,11 @@ openssl ocsp -CAfile $dir/certs/ca-chain.cert.pem \
 	most notably as a defense.
 </t>
 <t>
-	The CABForum guideline for a public CA is for the serial number to 
-	be a random number at least 8 octets long and no longer than 20 
-	bytes. By default, openssl makes self-signed certificates with 8 
-	octet serial numbers.  This guide uses openssl's RAND function to 
+	The CABForum guideline for a public CA and <xref target="RFC5280" 
+	section="4.1.2.2" format="default"/> is for the serial number to be 
+	a random number at least 8 octets long and no longer than 20 bytes. 
+	By default, openssl makes self-signed certificates with 8 octet 
+	serial numbers.  This guide uses openssl's RAND function to 
 	generate the random value and pipe it into the -set_serial option. 
 	This number MAY have the first bit as a ONE; the DER encoding rules 
 	prepend such numbers with 0x00.  Thus increasing the actual 
@@ -980,7 +981,7 @@ printf "%016X\n" $((16#$(openssl rand -hex 8) & 0x7fffffffffffffff))\
 </section>
 <section anchor="CriticalSAN" title="Certificates with only subjectAltName">
 <t>
-	In <xref target="RFC5280">RFC 5280</xref> (sec 4.2.1.6):  if
+	In <xref target="RFC5280" section="4.2.1.6" format="default"/>:  if
 	the only subject identity in the certificate is in subjectAltName,
 	then Subject MUST be empty and subjectAltName MUST be marked as
 	critical.

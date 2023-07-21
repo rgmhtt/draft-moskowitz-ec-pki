@@ -1073,14 +1073,14 @@ Internet-Draft                EC PKI Guide                     July 2023
    index them in a data store.  It has taken on other roles, most
    notably as a defense.
 
-   The CABForum guideline for a public CA is for the serial number to be
-   a random number at least 8 octets long and no longer than 20 bytes.
-   By default, openssl makes self-signed certificates with 8 octet
-   serial numbers.  This guide uses openssl's RAND function to generate
-   the random value and pipe it into the -set_serial option.  This
-   number MAY have the first bit as a ONE; the DER encoding rules
-   prepend such numbers with 0x00.  Thus increasing the actual
-   certificate size by a byte.
+   The CABForum guideline for a public CA and Section 4.1.2.2 of
+   [RFC5280] is for the serial number to be a random number at least 8
+   octets long and no longer than 20 bytes.  By default, openssl makes
+   self-signed certificates with 8 octet serial numbers.  This guide
+   uses openssl's RAND function to generate the random value and pipe it
+   into the -set_serial option.  This number MAY have the first bit as a
+   ONE; the DER encoding rules prepend such numbers with 0x00.  Thus
+   increasing the actual certificate size by a byte.
 
    An 8-byte serial number with the first bit of zero can be generated
    by limiting the random generation to less than 2^63:
@@ -1145,8 +1145,8 @@ Internet-Draft                EC PKI Guide                     July 2023
 
 10.4.  Certificates with only subjectAltName
 
-   In RFC 5280 [RFC5280] (sec 4.2.1.6): if the only subject identity in
-   the certificate is in subjectAltName, then Subject MUST be empty and
+   In Section 4.2.1.6 of [RFC5280]: if the only subject identity in the
+   certificate is in subjectAltName, then Subject MUST be empty and
    subjectAltName MUST be marked as critical.
 
    This can be achieved with the variable DN=/ and subjectAltName
