@@ -320,16 +320,16 @@ Internet-Draft                EC PKI Guide                     July 2023
    algorithm : EC algorithm used in certificates
 
    sn        : Serial Number length in bytes
-                  For a public CA the range is 8 to 19
+                  For a public CA the range is 8 to 20
 
    DN        : Distinguished Name
                   Policy is LOOSE; Recommended at least
                   providing Common Name
 
-   The Serial Number length for a public PKI ranges from 8 to 19 bytes.
-   The use of 19 rather than 20 is to accommodate the hex representation
-   of the Serial Number.  If it has a one in the high order bit, DER
-   encoding rules will place a 0x00 in front.
+   The DN and SAN fields are examples.  Change them to appropriate
+   values.  If you leave one blank, it will be left out of the
+   Certificate.  "OU" above is an example of an empty DN object.
+
 
 
 
@@ -337,10 +337,6 @@ Moskowitz, et al.        Expires 22 January 2024                [Page 6]
 
 Internet-Draft                EC PKI Guide                     July 2023
 
-
-   The DN and SAN fields are examples.  Change them to appropriate
-   values.  If you leave one blank, it will be left out of the
-   Certificate.  "OU" above is an example of an empty DN object.
 
    |  Create the file, $dir/openssl.cnf from the contents in Appendix A.
 
@@ -389,6 +385,10 @@ Internet-Draft                EC PKI Guide                     July 2023
 
 
 
+
+
+
+
 Moskowitz, et al.        Expires 22 January 2024                [Page 7]
 
 Internet-Draft                EC PKI Guide                     July 2023
@@ -427,7 +427,7 @@ Internet-Draft                EC PKI Guide                     July 2023
    openssl req -text -noout -verify\
        -in $dir/csr/ca.csr.$format
 
-   openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 19 is maximum
+   openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 20 is maximum
 
    openssl ca -config $dir/openssl.cnf\
        -extensions v3_ca -notext \
@@ -464,7 +464,7 @@ Internet-Draft                EC PKI Guide                     July 2023
    mkdir certs crl csr newcerts private
    chmod 700 private
    touch index.txt
-   sn=8 # hex 8 is minimum, 19 is maximum
+   sn=8 # hex 8 is minimum, 20 is maximum
    echo 1000 > $dir/crlnumber
 
    # cd $dir
@@ -566,7 +566,7 @@ Internet-Draft                EC PKI Guide                     July 2023
 
    export startdate=230801000000Z  # YYMMDDHHMMSSZ
    export enddate=20340731000000Z  # YYYYMMDDHHMMSSZ
-   openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 19 is maximum
+   openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 20 is maximum
    # Note 'openssl ca' does not support DER format
 
    openssl ca -config $cadir/openssl.cnf\
@@ -651,7 +651,7 @@ Internet-Draft                EC PKI Guide                     July 2023
 
    export startdate=230801000000Z  # YYMMDDHHMMSSZ
    export enddate=240731000000Z  # YYMMDDHHMMSSZ
-   openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 19 is maximum
+   openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 20 is maximum
    # Note 'openssl ca' does not support DER format
    openssl ca -config $cadir/openssl.cnf\
        -extensions server_cert -notext \
@@ -732,7 +732,7 @@ Internet-Draft                EC PKI Guide                     July 2023
 
    export startdate=230801000000Z  # YYMMDDHHMMSSZ
    export enddate=240731000000Z  # YYMMDDHHMMSSZ
-   openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 19 is maximum
+   openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 20 is maximum
    # Note 'openssl ca' does not support DER format
    openssl ca -config $dir/openssl.cnf\
        -extensions usr_cert -notext \
@@ -844,7 +844,7 @@ Internet-Draft                EC PKI Guide                     July 2023
 
    export startdate=230801000000Z  # YYMMDDHHMMSSZ
    export enddate=99991231235959Z # per IEEE 802.1AR
-   openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 19 is maximum
+   openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 20 is maximum
    # Note 'openssl ca' does not support DER format
    openssl ca -config $dir/openssl.cnf\
        -extensions 8021ar_idevid -notext \
@@ -990,7 +990,7 @@ Internet-Draft                EC PKI Guide                     July 2023
 
    export startdate=230801000000Z  # YYMMDDHHMMSSZ
    export enddate=99991231235959Z # per IEEE 802.1AR
-   openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 19 is maximum
+   openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 20 is maximum
    # Note 'openssl ca' does not support DER format
    openssl ca -config $dir/openssl.cnf\
        -extensions ocsp -notext \
@@ -1079,8 +1079,8 @@ Internet-Draft                EC PKI Guide                     July 2023
    serial numbers.  This guide uses openssl's RAND function to generate
    the random value and pipe it into the -set_serial option.  This
    number MAY have the first bit as a ONE; the DER encoding rules
-   prepend such numbers with 0x00.  Thus the limit of '19' for the
-   variable 'ns'.
+   prepend such numbers with 0x00.  Thus increasing the actual
+   certificate size by a byte.
 
    An 8-byte serial number with the first bit of zero can be generated
    by limiting the random generation to less than 2^63:

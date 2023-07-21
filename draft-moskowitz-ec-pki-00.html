@@ -1,0 +1,3023 @@
+<!DOCTYPE html>
+<html lang="en" class="Internet-Draft">
+<head>
+<meta charset="utf-8">
+<meta content="Common,Latin" name="scripts">
+<meta content="initial-scale=1.0" name="viewport">
+<title>Guide for building an EC PKI</title>
+<meta content="Robert Moskowitz" name="author">
+<meta content="Henk Birkholz" name="author">
+<meta content="Michael C. Richardson" name="author">
+<meta content="
+       
+ This memo provides a guide for building a PKI (Public Key 
+ Infrastructure) of EC certificates using openSSL.  Certificates 
+ in this guide can use either ECDSA or EdDSA.  Along with common 
+ End Entity certificates, this guide provides instructions for 
+ creating IEEE 802.1AR iDevID Secure Device certificates.
+ 
+    " name="description">
+<meta content="xml2rfc 3.17.3" name="generator">
+<meta content="RFC" name="keyword">
+<meta content="Request for Comments" name="keyword">
+<meta content="I-D" name="keyword">
+<meta content="Internet-Draft" name="keyword">
+<meta content="PKI" name="keyword">
+<meta content="ECDSA" name="keyword">
+<meta content="EdDSA" name="keyword">
+<meta content="802.1AR" name="keyword">
+<meta content="draft-moskowitz-ec-pki-00" name="ietf.draft">
+<!-- Generator version information:
+  xml2rfc 3.17.3
+    Python 3.11.4
+    appdirs 1.4.4
+    ConfigArgParse 1.5.3
+    google-i18n-address 3.0.0
+    intervaltree 3.1.0
+    Jinja2 3.1.2
+    lxml 4.9.2
+    pycountry 22.3.5
+    PyYAML 6.0
+    requests 2.28.2
+    setuptools 65.5.1
+    six 1.16.0
+    wcwidth 0.2.5
+-->
+<link href="draft-moskowitz-ec-pki-00.xml" rel="alternate" type="application/rfc+xml">
+<link href="#copyright" rel="license">
+<style type="text/css">/*
+
+  NOTE: Changes at the bottom of this file overrides some earlier settings.
+
+  Once the style has stabilized and has been adopted as an official RFC style,
+  this can be consolidated so that style settings occur only in one place, but
+  for now the contents of this file consists first of the initial CSS work as
+  provided to the RFC Formatter (xml2rfc) work, followed by itemized and
+  commented changes found necessary during the development of the v3
+  formatters.
+
+*/
+
+/* fonts */
+@import url('https://fonts.googleapis.com/css?family=Noto+Sans'); /* Sans-serif */
+@import url('https://fonts.googleapis.com/css?family=Noto+Serif'); /* Serif (print) */
+@import url('https://fonts.googleapis.com/css?family=Roboto+Mono'); /* Monospace */
+
+:root {
+  --font-sans: 'Noto Sans', Arial, Helvetica, sans-serif;
+  --font-serif: 'Noto Serif', 'Times', 'Times New Roman', serif;
+  --font-mono: 'Roboto Mono', Courier, 'Courier New', monospace;
+}
+
+@viewport {
+  zoom: 1.0;
+}
+@-ms-viewport {
+  width: extend-to-zoom;
+  zoom: 1.0;
+}
+/* general and mobile first */
+html {
+}
+body {
+  max-width: 90%;
+  margin: 1.5em auto;
+  color: #222;
+  background-color: #fff;
+  font-size: 14px;
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  scroll-behavior: smooth;
+}
+.ears {
+  display: none;
+}
+
+/* headings */
+#title, h1, h2, h3, h4, h5, h6 {
+  margin: 1em 0 0.5em;
+  font-weight: bold;
+  line-height: 1.3;
+}
+#title {
+  clear: both;
+  border-bottom: 1px solid #ddd;
+  margin: 0 0 0.5em 0;
+  padding: 1em 0 0.5em;
+}
+.author {
+  padding-bottom: 4px;
+}
+h1 {
+  font-size: 26px;
+  margin: 1em 0;
+}
+h2 {
+  font-size: 22px;
+  margin-top: -20px;  /* provide offset for in-page anchors */
+  padding-top: 33px;
+}
+h3 {
+  font-size: 18px;
+  margin-top: -36px;  /* provide offset for in-page anchors */
+  padding-top: 42px;
+}
+h4 {
+  font-size: 16px;
+  margin-top: -36px;  /* provide offset for in-page anchors */
+  padding-top: 42px;
+}
+h5, h6 {
+  font-size: 14px;
+}
+#n-copyright-notice {
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 1em;
+  margin-bottom: 1em;
+}
+/* general structure */
+p {
+  padding: 0;
+  margin: 0 0 1em 0;
+  text-align: left;
+}
+div, span {
+  position: relative;
+}
+div {
+  margin: 0;
+}
+.alignRight.art-text {
+  background-color: #f9f9f9;
+  border: 1px solid #eee;
+  border-radius: 3px;
+  padding: 1em 1em 0;
+  margin-bottom: 1.5em;
+}
+.alignRight.art-text pre {
+  padding: 0;
+}
+.alignRight {
+  margin: 1em 0;
+}
+.alignRight > *:first-child {
+  border: none;
+  margin: 0;
+  float: right;
+  clear: both;
+}
+.alignRight > *:nth-child(2) {
+  clear: both;
+  display: block;
+  border: none;
+}
+svg {
+  display: block;
+}
+svg[font-family~="serif" i], svg [font-family~="serif" i] {
+  font-family: var(--font-serif);
+}
+svg[font-family~="sans-serif" i], svg [font-family~="sans-serif" i] {
+  font-family: var(--font-sans);
+}
+svg[font-family~="monospace" i], svg [font-family~="monospace" i] {
+  font-family: var(--font-mono);
+}
+.alignCenter.art-text {
+  background-color: #f9f9f9;
+  border: 1px solid #eee;
+  border-radius: 3px;
+  padding: 1em 1em 0;
+  margin-bottom: 1.5em;
+}
+.alignCenter.art-text pre {
+  padding: 0;
+}
+.alignCenter {
+  margin: 1em 0;
+}
+.alignCenter > *:first-child {
+  display: table;
+  border: none;
+  margin: 0 auto;
+}
+
+/* lists */
+ol, ul {
+  padding: 0;
+  margin: 0 0 1em 2em;
+}
+ol ol, ul ul, ol ul, ul ol {
+  margin-left: 1em;
+}
+li {
+  margin: 0 0 0.25em 0;
+}
+.ulCompact li {
+  margin: 0;
+}
+ul.empty, .ulEmpty {
+  list-style-type: none;
+}
+ul.empty li, .ulEmpty li {
+  margin-top: 0.5em;
+}
+ul.ulBare, li.ulBare {
+  margin-left: 0em !important;
+}
+ul.compact, .ulCompact,
+ol.compact, .olCompact {
+  line-height: 100%;
+  margin: 0 0 0 2em;
+}
+
+/* definition lists */
+dl {
+}
+dl > dt {
+  float: left;
+  margin-right: 1em;
+}
+/* 
+dl.nohang > dt {
+  float: none;
+}
+*/
+dl > dd {
+  margin-bottom: .8em;
+  min-height: 1.3em;
+}
+dl.compact > dd, .dlCompact > dd {
+  margin-bottom: 0em;
+}
+dl > dd > dl {
+  margin-top: 0.5em;
+  margin-bottom: 0em;
+}
+
+/* links */
+a {
+  text-decoration: none;
+}
+a[href] {
+  color: #22e; /* Arlen: WCAG 2019 */
+}
+a[href]:hover {
+  background-color: #f2f2f2;
+}
+figcaption a[href],
+a[href].selfRef,
+.iref + a[href].internal {
+  color: #222;
+}
+/* XXX probably not this:
+a.selfRef:hover {
+  background-color: transparent;
+  cursor: default;
+} */
+
+/* Figures */
+tt, code, pre {
+  background-color: #f9f9f9;
+  font-family: var(--font-mono);
+}
+pre {
+  border: 1px solid #eee;
+  margin: 0;
+  padding: 1em;
+}
+img {
+  max-width: 100%;
+}
+figure {
+  margin: 0;
+}
+figure blockquote {
+  margin: 0.8em 0.4em 0.4em;
+}
+figcaption {
+  font-style: italic;
+  margin: 0 0 1em 0;
+}
+@media screen {
+  pre {
+    overflow-x: auto;
+    max-width: 100%;
+    max-width: calc(100% - 22px);
+  }
+}
+
+/* aside, blockquote */
+aside, blockquote {
+  margin-left: 0;
+  padding: 1.2em 2em;
+}
+blockquote {
+  background-color: #f9f9f9;
+  color: #111; /* Arlen: WCAG 2019 */
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  margin: 1em 0;
+}
+cite {
+  display: block;
+  text-align: right;
+  font-style: italic;
+}
+
+/* tables */
+table {
+  width: 100%;
+  margin: 0 0 1em;
+  border-collapse: collapse;
+  border: 1px solid #eee;
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.5em 0.75em;
+}
+th {
+  text-align: left;
+  background-color: #e9e9e9;
+}
+tr:nth-child(2n+1) > td {
+  background-color: #f5f5f5;
+}
+table caption {
+  font-style: italic;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+table p {
+  /* XXX to avoid bottom margin on table row signifiers. If paragraphs should
+     be allowed within tables more generally, it would be far better to select on a class. */
+  margin: 0;
+}
+
+/* pilcrow */
+a.pilcrow {
+  color: #666; /* Arlen: AHDJ 2019 */
+  text-decoration: none;
+  visibility: hidden;
+  user-select: none;
+  -ms-user-select: none;
+  -o-user-select:none;
+  -moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+@media screen {
+  aside:hover > a.pilcrow,
+  p:hover > a.pilcrow,
+  blockquote:hover > a.pilcrow,
+  div:hover > a.pilcrow,
+  li:hover > a.pilcrow,
+  pre:hover > a.pilcrow {
+    visibility: visible;
+  }
+  a.pilcrow:hover {
+    background-color: transparent;
+  }
+}
+
+/* misc */
+hr {
+  border: 0;
+  border-top: 1px solid #eee;
+}
+.bcp14 {
+  font-variant: small-caps;
+}
+
+.role {
+  font-variant: all-small-caps;
+}
+
+/* info block */
+#identifiers {
+  margin: 0;
+  font-size: 0.9em;
+}
+#identifiers dt {
+  width: 3em;
+  clear: left;
+}
+#identifiers dd {
+  float: left;
+  margin-bottom: 0;
+}
+/* Fix PDF info block run off issue */
+@media print {
+  #identifiers dd {
+    float: none;
+  }
+}
+#identifiers .authors .author {
+  display: inline-block;
+  margin-right: 1.5em;
+}
+#identifiers .authors .org {
+  font-style: italic;
+}
+
+/* The prepared/rendered info at the very bottom of the page */
+.docInfo {
+  color: #666; /* Arlen: WCAG 2019 */
+  font-size: 0.9em;
+  font-style: italic;
+  margin-top: 2em;
+}
+.docInfo .prepared {
+  float: left;
+}
+.docInfo .prepared {
+  float: right;
+}
+
+/* table of contents */
+#toc  {
+  padding: 0.75em 0 2em 0;
+  margin-bottom: 1em;
+}
+nav.toc ul {
+  margin: 0 0.5em 0 0;
+  padding: 0;
+  list-style: none;
+}
+nav.toc li {
+  line-height: 1.3em;
+  margin: 0.75em 0;
+  padding-left: 1.2em;
+  text-indent: -1.2em;
+}
+/* references */
+.references dt {
+  text-align: right;
+  font-weight: bold;
+  min-width: 7em;
+}
+.references dd {
+  margin-left: 8em;
+  overflow: auto;
+}
+
+.refInstance {
+  margin-bottom: 1.25em;
+}
+
+.references .ascii {
+  margin-bottom: 0.25em;
+}
+
+/* index */
+.index ul {
+  margin: 0 0 0 1em;
+  padding: 0;
+  list-style: none;
+}
+.index ul ul {
+  margin: 0;
+}
+.index li {
+  margin: 0;
+  text-indent: -2em;
+  padding-left: 2em;
+  padding-bottom: 5px;
+}
+.indexIndex {
+  margin: 0.5em 0 1em;
+}
+.index a {
+  font-weight: 700;
+}
+/* make the index two-column on all but the smallest screens */
+@media (min-width: 600px) {
+  .index ul {
+    -moz-column-count: 2;
+    -moz-column-gap: 20px;
+  }
+  .index ul ul {
+    -moz-column-count: 1;
+    -moz-column-gap: 0;
+  }
+}
+
+/* authors */
+address.vcard {
+  font-style: normal;
+  margin: 1em 0;
+}
+
+address.vcard .nameRole {
+  font-weight: 700;
+  margin-left: 0;
+}
+address.vcard .label {
+  font-family: var(--font-sans);
+  margin: 0.5em 0;
+}
+address.vcard .type {
+  display: none;
+}
+.alternative-contact {
+  margin: 1.5em 0 1em;
+}
+hr.addr {
+  border-top: 1px dashed;
+  margin: 0;
+  color: #ddd;
+  max-width: calc(100% - 16px);
+}
+
+/* temporary notes */
+.rfcEditorRemove::before {
+  position: absolute;
+  top: 0.2em;
+  right: 0.2em;
+  padding: 0.2em;
+  content: "The RFC Editor will remove this note";
+  color: #9e2a00; /* Arlen: WCAG 2019 */
+  background-color: #ffd; /* Arlen: WCAG 2019 */
+}
+.rfcEditorRemove {
+  position: relative;
+  padding-top: 1.8em;
+  background-color: #ffd; /* Arlen: WCAG 2019 */
+  border-radius: 3px;
+}
+.cref {
+  background-color: #ffd; /* Arlen: WCAG 2019 */
+  padding: 2px 4px;
+}
+.crefSource {
+  font-style: italic;
+}
+/* alternative layout for smaller screens */
+@media screen and (max-width: 1023px) {
+  body {
+    padding-top: 2em;
+  }
+  #title {
+    padding: 1em 0;
+  }
+  h1 {
+    font-size: 24px;
+  }
+  h2 {
+    font-size: 20px;
+    margin-top: -18px;  /* provide offset for in-page anchors */
+    padding-top: 38px;
+  }
+  #identifiers dd {
+    max-width: 60%;
+  }
+  #toc {
+    position: fixed;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    padding: 0;
+    margin: 0;
+    background-color: inherit;
+    border-bottom: 1px solid #ccc;
+  }
+  #toc h2 {
+    margin: -1px 0 0 0;
+    padding: 4px 0 4px 6px;
+    padding-right: 1em;
+    min-width: 190px;
+    font-size: 1.1em;
+    text-align: right;
+    background-color: #444;
+    color: white;
+    cursor: pointer;
+  }
+  #toc h2::before { /* css hamburger */
+    float: right;
+    position: relative;
+    width: 1em;
+    height: 1px;
+    left: -164px;
+    margin: 6px 0 0 0;
+    background: white none repeat scroll 0 0;
+    box-shadow: 0 4px 0 0 white, 0 8px 0 0 white;
+    content: "";
+  }
+  #toc nav {
+    display: none;
+    padding: 0.5em 1em 1em;
+    overflow: auto;
+    height: calc(100vh - 48px);
+    border-left: 1px solid #ddd;
+  }
+}
+
+/* alternative layout for wide screens */
+@media screen and (min-width: 1024px) {
+  body {
+    max-width: 724px;
+    margin: 42px auto;
+    padding-left: 1.5em;
+    padding-right: 29em;
+  }
+  #toc {
+    position: fixed;
+    top: 42px;
+    right: 42px;
+    width: 25%;
+    margin: 0;
+    padding: 0 1em;
+    z-index: 1;
+  }
+  #toc h2 {
+    border-top: none;
+    border-bottom: 1px solid #ddd;
+    font-size: 1em;
+    font-weight: normal;
+    margin: 0;
+    padding: 0.25em 1em 1em 0;
+  }
+  #toc nav {
+    display: block;
+    height: calc(90vh - 84px);
+    bottom: 0;
+    padding: 0.5em 0 0;
+    overflow: auto;
+  }
+  img { /* future proofing */
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* pagination */
+@media print {
+  body {
+
+    width: 100%;
+  }
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+  #n-copyright-notice {
+    border-bottom: none;
+  }
+  #toc, #n-introduction {
+    page-break-before: always;
+  }
+  #toc {
+    border-top: none;
+    padding-top: 0;
+  }
+  figure, pre {
+    page-break-inside: avoid;
+  }
+  figure {
+    overflow: scroll;
+  }
+  .breakable pre {
+    break-inside: auto;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+  h2+*, h3+*, h4+*, h5+*, h6+* {
+    page-break-before: avoid;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 10pt;
+  }
+  table {
+    border: 1px solid #ddd;
+  }
+  td {
+    border-top: 1px solid #ddd;
+  }
+}
+
+/* This is commented out here, as the string-set: doesn't
+   pass W3C validation currently */
+/*
+.ears thead .left {
+  string-set: ears-top-left content();
+}
+
+.ears thead .center {
+  string-set: ears-top-center content();
+}
+
+.ears thead .right {
+  string-set: ears-top-right content();
+}
+
+.ears tfoot .left {
+  string-set: ears-bottom-left content();
+}
+
+.ears tfoot .center {
+  string-set: ears-bottom-center content();
+}
+
+.ears tfoot .right {
+  string-set: ears-bottom-right content();
+}
+*/
+
+@page :first {
+  padding-top: 0;
+  @top-left {
+    content: normal;
+    border: none;
+  }
+  @top-center {
+    content: normal;
+    border: none;
+  }
+  @top-right {
+    content: normal;
+    border: none;
+  }
+}
+
+@page {
+  size: A4;
+  margin-bottom: 45mm;
+  padding-top: 20px;
+  /* The following is commented out here, but set appropriately by in code, as
+     the content depends on the document */
+  /*
+  @top-left {
+    content: 'Internet-Draft';
+    vertical-align: bottom;
+    border-bottom: solid 1px #ccc;
+  }
+  @top-left {
+    content: string(ears-top-left);
+    vertical-align: bottom;
+    border-bottom: solid 1px #ccc;
+  }
+  @top-center {
+    content: string(ears-top-center);
+    vertical-align: bottom;
+    border-bottom: solid 1px #ccc;
+  }
+  @top-right {
+    content: string(ears-top-right);
+    vertical-align: bottom;
+    border-bottom: solid 1px #ccc;
+  }
+  @bottom-left {
+    content: string(ears-bottom-left);
+    vertical-align: top;
+    border-top: solid 1px #ccc;
+  }
+  @bottom-center {
+    content: string(ears-bottom-center);
+    vertical-align: top;
+    border-top: solid 1px #ccc;
+  }
+  @bottom-right {
+      content: '[Page ' counter(page) ']';
+      vertical-align: top;
+      border-top: solid 1px #ccc;
+  }
+  */
+
+}
+
+/* Changes introduced to fix issues found during implementation */
+/* Make sure links are clickable even if overlapped by following H* */
+a {
+  z-index: 2;
+}
+/* Separate body from document info even without intervening H1 */
+section {
+  clear: both;
+}
+
+
+/* Top align author divs, to avoid names without organization dropping level with org names */
+.author {
+  vertical-align: top;
+}
+
+/* Leave room in document info to show Internet-Draft on one line */
+#identifiers dt {
+  width: 8em;
+}
+
+/* Don't waste quite as much whitespace between label and value in doc info */
+#identifiers dd {
+  margin-left: 1em;
+}
+
+/* Give floating toc a background color (needed when it's a div inside section */
+#toc {
+  background-color: white;
+}
+
+/* Make the collapsed ToC header render white on gray also when it's a link */
+@media screen and (max-width: 1023px) {
+  #toc h2 a,
+  #toc h2 a:link,
+  #toc h2 a:focus,
+  #toc h2 a:hover,
+  #toc a.toplink,
+  #toc a.toplink:hover {
+    color: white;
+    background-color: #444;
+    text-decoration: none;
+  }
+}
+
+/* Give the bottom of the ToC some whitespace */
+@media screen and (min-width: 1024px) {
+  #toc {
+    padding: 0 0 1em 1em;
+  }
+}
+
+/* Style section numbers with more space between number and title */
+.section-number {
+  padding-right: 0.5em;
+}
+
+/* prevent monospace from becoming overly large */
+tt, code, pre {
+  font-size: 95%;
+}
+
+/* Fix the height/width aspect for ascii art*/
+.sourcecode pre,
+.art-text pre {
+  line-height: 1.12;
+}
+
+
+/* Add styling for a link in the ToC that points to the top of the document */
+a.toplink {
+  float: right;
+  margin-right: 0.5em;
+}
+
+/* Fix the dl styling to match the RFC 7992 attributes */
+dl > dt,
+dl.dlParallel > dt {
+  float: left;
+  margin-right: 1em;
+}
+dl.dlNewline > dt {
+  float: none;
+}
+
+/* Provide styling for table cell text alignment */
+table td.text-left,
+table th.text-left {
+  text-align: left;
+}
+table td.text-center,
+table th.text-center {
+  text-align: center;
+}
+table td.text-right,
+table th.text-right {
+  text-align: right;
+}
+
+/* Make the alternative author contact information look less like just another
+   author, and group it closer with the primary author contact information */
+.alternative-contact {
+  margin: 0.5em 0 0.25em 0;
+}
+address .non-ascii {
+  margin: 0 0 0 2em;
+}
+
+/* With it being possible to set tables with alignment
+  left, center, and right, { width: 100%; } does not make sense */
+table {
+  width: auto;
+}
+
+/* Avoid reference text that sits in a block with very wide left margin,
+   because of a long floating dt label.*/
+.references dd {
+  overflow: visible;
+}
+
+/* Control caption placement */
+caption {
+  caption-side: bottom;
+}
+
+/* Limit the width of the author address vcard, so names in right-to-left
+   script don't end up on the other side of the page. */
+
+address.vcard {
+  max-width: 30em;
+  margin-right: auto;
+}
+
+/* For address alignment dependent on LTR or RTL scripts */
+address div.left {
+  text-align: left;
+}
+address div.right {
+  text-align: right;
+}
+
+/* Provide table alignment support.  We can't use the alignX classes above
+   since they do unwanted things with caption and other styling. */
+table.right {
+ margin-left: auto;
+ margin-right: 0;
+}
+table.center {
+ margin-left: auto;
+ margin-right: auto;
+}
+table.left {
+ margin-left: 0;
+ margin-right: auto;
+}
+
+/* Give the table caption label the same styling as the figcaption */
+caption a[href] {
+  color: #222;
+}
+
+@media print {
+  .toplink {
+    display: none;
+  }
+
+  /* avoid overwriting the top border line with the ToC header */
+  #toc {
+    padding-top: 1px;
+  }
+
+  /* Avoid page breaks inside dl and author address entries */
+  .vcard {
+    page-break-inside: avoid;
+  }
+
+}
+/* Tweak the bcp14 keyword presentation */
+.bcp14 {
+  font-variant: small-caps;
+  font-weight: bold;
+  font-size: 0.9em;
+}
+/* Tweak the invisible space above H* in order not to overlay links in text above */
+ h2 {
+  margin-top: -18px;  /* provide offset for in-page anchors */
+  padding-top: 31px;
+ }
+ h3 {
+  margin-top: -18px;  /* provide offset for in-page anchors */
+  padding-top: 24px;
+ }
+ h4 {
+  margin-top: -18px;  /* provide offset for in-page anchors */
+  padding-top: 24px;
+ }
+/* Float artwork pilcrow to the right */
+@media screen {
+  .artwork a.pilcrow {
+    display: block;
+    line-height: 0.7;
+    margin-top: 0.15em;
+  }
+}
+/* Make pilcrows on dd visible */
+@media screen {
+  dd:hover > a.pilcrow {
+    visibility: visible;
+  }
+}
+/* Make the placement of figcaption match that of a table's caption
+   by removing the figure's added bottom margin */
+.alignLeft.art-text,
+.alignCenter.art-text,
+.alignRight.art-text {
+   margin-bottom: 0;
+}
+.alignLeft,
+.alignCenter,
+.alignRight {
+  margin: 1em 0 0 0;
+}
+/* In print, the pilcrow won't show on hover, so prevent it from taking up space,
+   possibly even requiring a new line */
+@media print {
+  a.pilcrow {
+    display: none;
+  }
+}
+/* Styling for the external metadata */
+div#external-metadata {
+  background-color: #eee;
+  padding: 0.5em;
+  margin-bottom: 0.5em;
+  display: none;
+}
+div#internal-metadata {
+  padding: 0.5em;                       /* to match the external-metadata padding */
+}
+/* Styling for title RFC Number */
+h1#rfcnum {
+  clear: both;
+  margin: 0 0 -1em;
+  padding: 1em 0 0 0;
+}
+/* Make .olPercent look the same as <ol><li> */
+dl.olPercent > dd {
+  margin-bottom: 0.25em;
+  min-height: initial;
+}
+/* Give aside some styling to set it apart */
+aside {
+  border-left: 1px solid #ddd;
+  margin: 1em 0 1em 2em;
+  padding: 0.2em 2em;
+}
+aside > dl,
+aside > ol,
+aside > ul,
+aside > table,
+aside > p {
+  margin-bottom: 0.5em;
+}
+/* Additional page break settings */
+@media print {
+  figcaption, table caption {
+    page-break-before: avoid;
+  }
+}
+/* Font size adjustments for print */
+@media print {
+  body  { font-size: 10pt;      line-height: normal; max-width: 96%; }
+  h1    { font-size: 1.72em;    padding-top: 1.5em; } /* 1*1.2*1.2*1.2 */
+  h2    { font-size: 1.44em;    padding-top: 1.5em; } /* 1*1.2*1.2 */
+  h3    { font-size: 1.2em;     padding-top: 1.5em; } /* 1*1.2 */
+  h4    { font-size: 1em;       padding-top: 1.5em; }
+  h5, h6 { font-size: 1em;      margin: initial; padding: 0.5em 0 0.3em; }
+}
+/* Sourcecode margin in print, when there's no pilcrow */
+@media print {
+  .artwork,
+  .artwork > pre,
+  .sourcecode {
+    margin-bottom: 1em;
+  }
+}
+/* Avoid narrow tables forcing too narrow table captions, which may render badly */
+table {
+  min-width: 20em;
+}
+/* ol type a */
+ol.type-a { list-style-type: lower-alpha; }
+ol.type-A { list-style-type: upper-alpha; }
+ol.type-i { list-style-type: lower-roman; }
+ol.type-I { list-style-type: lower-roman; }
+/* Apply the print table and row borders in general, on request from the RPC,
+and increase the contrast between border and odd row background slightly */
+table {
+  border: 1px solid #ddd;
+}
+td {
+  border-top: 1px solid #ddd;
+}
+tr {
+  break-inside: avoid;
+}
+tr:nth-child(2n+1) > td {
+  background-color: #f8f8f8;
+}
+/* Use style rules to govern display of the TOC. */
+@media screen and (max-width: 1023px) {
+  #toc nav { display: none; }
+  #toc.active nav { display: block; }
+}
+/* Add support for keepWithNext */
+.keepWithNext {
+  break-after: avoid-page;
+  break-after: avoid-page;
+}
+/* Add support for keepWithPrevious */
+.keepWithPrevious {
+  break-before: avoid-page;
+}
+/* Change the approach to avoiding breaks inside artwork etc. */
+figure, pre, table, .artwork, .sourcecode  {
+  break-before: auto;
+  break-after: auto;
+}
+/* Avoid breaks between <dt> and <dd> */
+dl {
+  break-before: auto;
+  break-inside: auto;
+}
+dt {
+  break-before: auto;
+  break-after: avoid-page;
+}
+dd {
+  break-before: avoid-page;
+  break-after: auto;
+  orphans: 3;
+  widows: 3
+}
+span.break, dd.break {
+  margin-bottom: 0;
+  min-height: 0;
+  break-before: auto;
+  break-inside: auto;
+  break-after: auto;
+}
+/* Undo break-before ToC */
+@media print {
+  #toc {
+    break-before: auto;
+  }
+}
+/* Text in compact lists should not get extra bottom margin space,
+   since that would makes the list not compact */
+ul.compact p, .ulCompact p,
+ol.compact p, .olCompact p {
+ margin: 0;
+}
+/* But the list as a whole needs the extra space at the end */
+section ul.compact,
+section .ulCompact,
+section ol.compact,
+section .olCompact {
+  margin-bottom: 1em;                    /* same as p not within ul.compact etc. */
+}
+/* The tt and code background above interferes with for instance table cell
+   backgrounds.  Changed to something a bit more selective. */
+tt, code {
+  background-color: transparent;
+}
+p tt, p code, li tt, li code {
+  background-color: #f8f8f8;
+}
+/* Tweak the pre margin -- 0px doesn't come out well */
+pre {
+   margin-top: 0.5px;
+}
+/* Tweak the compact list text */
+ul.compact, .ulCompact,
+ol.compact, .olCompact,
+dl.compact, .dlCompact {
+  line-height: normal;
+}
+/* Don't add top margin for nested lists */
+li > ul, li > ol, li > dl,
+dd > ul, dd > ol, dd > dl,
+dl > dd > dl {
+  margin-top: initial;
+}
+/* Elements that should not be rendered on the same line as a <dt> */
+/* This should match the element list in writer.text.TextWriter.render_dl() */
+dd > div.artwork:first-child,
+dd > aside:first-child,
+dd > figure:first-child,
+dd > ol:first-child,
+dd > div.sourcecode:first-child,
+dd > table:first-child,
+dd > ul:first-child {
+  clear: left;
+}
+/* fix for weird browser behaviour when <dd/> is empty */
+dt+dd:empty::before{
+  content: "\00a0";
+}
+/* Make paragraph spacing inside <li> smaller than in body text, to fit better within the list */
+li > p {
+  margin-bottom: 0.5em
+}
+/* Don't let p margin spill out from inside list items */
+li > p:last-of-type:only-child {
+  margin-bottom: 0;
+}
+</style>
+<link href="rfc-local.css" rel="stylesheet" type="text/css">
+<script type="application/javascript">async function addMetadata(){try{const e=document.styleSheets[0].cssRules;for(let t=0;t<e.length;t++)if(/#identifiers/.exec(e[t].selectorText)){const a=e[t].cssText.replace("#identifiers","#external-updates");document.styleSheets[0].insertRule(a,document.styleSheets[0].cssRules.length)}}catch(e){console.log(e)}const e=document.getElementById("external-metadata");if(e)try{var t,a="",o=function(e){const t=document.getElementsByTagName("meta");for(let a=0;a<t.length;a++)if(t[a].getAttribute("name")===e)return t[a].getAttribute("content");return""}("rfc.number");if(o){t="https://www.rfc-editor.org/rfc/rfc"+o+".json";try{const e=await fetch(t);a=await e.json()}catch(e){t=document.URL.indexOf("html")>=0?document.URL.replace(/html$/,"json"):document.URL+".json";const o=await fetch(t);a=await o.json()}}if(!a)return;e.style.display="block";const s="",d="https://datatracker.ietf.org/doc",n="https://datatracker.ietf.org/ipr/search",c="https://www.rfc-editor.org/info",l=a.doc_id.toLowerCase(),i=a.doc_id.slice(0,3).toLowerCase(),f=a.doc_id.slice(3).replace(/^0+/,""),u={status:"Status",obsoletes:"Obsoletes",obsoleted_by:"Obsoleted By",updates:"Updates",updated_by:"Updated By",see_also:"See Also",errata_url:"Errata"};let h="<dl style='overflow:hidden' id='external-updates'>";["status","obsoletes","obsoleted_by","updates","updated_by","see_also","errata_url"].forEach(e=>{if("status"==e){a[e]=a[e].toLowerCase();var t=a[e].split(" "),o=t.length,w="",p=1;for(let e=0;e<o;e++)p<o?w=w+r(t[e])+" ":w+=r(t[e]),p++;a[e]=w}else if("obsoletes"==e||"obsoleted_by"==e||"updates"==e||"updated_by"==e){var g,m="",b=1;g=a[e].length;for(let t=0;t<g;t++)a[e][t]&&(a[e][t]=String(a[e][t]).toLowerCase(),m=b<g?m+"<a href='"+s+"/rfc/".concat(a[e][t])+"'>"+a[e][t].slice(3)+"</a>, ":m+"<a href='"+s+"/rfc/".concat(a[e][t])+"'>"+a[e][t].slice(3)+"</a>",b++);a[e]=m}else if("see_also"==e){var y,L="",C=1;y=a[e].length;for(let t=0;t<y;t++)if(a[e][t]){a[e][t]=String(a[e][t]);var _=a[e][t].slice(0,3),v=a[e][t].slice(3).replace(/^0+/,"");L=C<y?"RFC"!=_?L+"<a href='"+s+"/info/"+_.toLowerCase().concat(v.toLowerCase())+"'>"+_+" "+v+"</a>, ":L+"<a href='"+s+"/info/"+_.toLowerCase().concat(v.toLowerCase())+"'>"+v+"</a>, ":"RFC"!=_?L+"<a href='"+s+"/info/"+_.toLowerCase().concat(v.toLowerCase())+"'>"+_+" "+v+"</a>":L+"<a href='"+s+"/info/"+_.toLowerCase().concat(v.toLowerCase())+"'>"+v+"</a>",C++}a[e]=L}else if("errata_url"==e){var R="";R=a[e]?R+"<a href='"+a[e]+"'>Errata exist</a> | <a href='"+d+"/"+l+"'>Datatracker</a>| <a href='"+n+"/?"+i+"="+f+"&submit="+i+"'>IPR</a> | <a href='"+c+"/"+l+"'>Info page</a>":"<a href='"+d+"/"+l+"'>Datatracker</a> | <a href='"+n+"/?"+i+"="+f+"&submit="+i+"'>IPR</a> | <a href='"+c+"/"+l+"'>Info page</a>",a[e]=R}""!=a[e]?"Errata"==u[e]?h+=`<dt>More info:</dt><dd>${a[e]}</dd>`:h+=`<dt>${u[e]}:</dt><dd>${a[e]}</dd>`:"Errata"==u[e]&&(h+=`<dt>More info:</dt><dd>${a[e]}</dd>`)}),h+="</dl>",e.innerHTML=h}catch(e){console.log(e)}else console.log("Could not locate metadata <div> element");function r(e){return e.charAt(0).toUpperCase()+e.slice(1)}}window.removeEventListener("load",addMetadata),window.addEventListener("load",addMetadata);</script>
+</head>
+<body class="xml2rfc">
+<script src="metadata.min.js"></script>
+<table class="ears">
+<thead><tr>
+<td class="left">Internet-Draft</td>
+<td class="center">EC PKI Guide</td>
+<td class="right">July 2023</td>
+</tr></thead>
+<tfoot><tr>
+<td class="left">Moskowitz, et al.</td>
+<td class="center">Expires 22 January 2024</td>
+<td class="right">[Page]</td>
+</tr></tfoot>
+</table>
+<div id="external-metadata" class="document-information"></div>
+<div id="internal-metadata" class="document-information">
+<dl id="identifiers">
+<dt class="label-workgroup">Workgroup:</dt>
+<dd class="workgroup">wg TBD</dd>
+<dt class="label-internet-draft">Internet-Draft:</dt>
+<dd class="internet-draft">draft-moskowitz-ec-pki-00</dd>
+<dt class="label-published">Published:</dt>
+<dd class="published">
+<time datetime="2023-07-21" class="published">21 July 2023</time>
+    </dd>
+<dt class="label-intended-status">Intended Status:</dt>
+<dd class="intended-status">Informational</dd>
+<dt class="label-expires">Expires:</dt>
+<dd class="expires"><time datetime="2024-01-22">22 January 2024</time></dd>
+<dt class="label-authors">Authors:</dt>
+<dd class="authors">
+<div class="author">
+      <div class="author-name">R. Moskowitz</div>
+<div class="org">HTT Consulting</div>
+</div>
+<div class="author">
+      <div class="author-name">H. Birkholz</div>
+<div class="org">Fraunhofer SIT</div>
+</div>
+<div class="author">
+      <div class="author-name">M. Richardson</div>
+<div class="org">Sandelman</div>
+</div>
+</dd>
+</dl>
+</div>
+<h1 id="title">Guide for building an EC PKI</h1>
+<section id="section-abstract">
+      <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
+<p id="section-abstract-1">
+ This memo provides a guide for building a PKI (Public Key 
+ Infrastructure) of EC certificates using openSSL.  Certificates 
+ in this guide can use either ECDSA or EdDSA.  Along with common 
+ End Entity certificates, this guide provides instructions for 
+ creating IEEE 802.1AR iDevID Secure Device certificates.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+</section>
+<div id="status-of-memo">
+<section id="section-boilerplate.1">
+        <h2 id="name-status-of-this-memo">
+<a href="#name-status-of-this-memo" class="section-name selfRef">Status of This Memo</a>
+        </h2>
+<p id="section-boilerplate.1-1">
+        This Internet-Draft is submitted in full conformance with the
+        provisions of BCP 78 and BCP 79.<a href="#section-boilerplate.1-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-2">
+        Internet-Drafts are working documents of the Internet Engineering Task
+        Force (IETF). Note that other groups may also distribute working
+        documents as Internet-Drafts. The list of current Internet-Drafts is
+        at <span><a href="https://datatracker.ietf.org/drafts/current/">https://datatracker.ietf.org/drafts/current/</a></span>.<a href="#section-boilerplate.1-2" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-3">
+        Internet-Drafts are draft documents valid for a maximum of six months
+        and may be updated, replaced, or obsoleted by other documents at any
+        time. It is inappropriate to use Internet-Drafts as reference
+        material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-4">
+        This Internet-Draft will expire on 22 January 2024.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="copyright">
+<section id="section-boilerplate.2">
+        <h2 id="name-copyright-notice">
+<a href="#name-copyright-notice" class="section-name selfRef">Copyright Notice</a>
+        </h2>
+<p id="section-boilerplate.2-1">
+            Copyright (c) 2023 IETF Trust and the persons identified as the
+            document authors. All rights reserved.<a href="#section-boilerplate.2-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.2-2">
+            This document is subject to BCP 78 and the IETF Trust's Legal
+            Provisions Relating to IETF Documents
+            (<span><a href="https://trustee.ietf.org/license-info">https://trustee.ietf.org/license-info</a></span>) in effect on the date of
+            publication of this document. Please review these documents
+            carefully, as they describe your rights and restrictions with
+            respect to this document. Code Components extracted from this
+            document must include Revised BSD License text as described in
+            Section 4.e of the Trust Legal Provisions and are provided without
+            warranty as described in the Revised BSD License.<a href="#section-boilerplate.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="toc">
+<section id="section-toc.1">
+        <a href="#" onclick="scroll(0,0)" class="toplink">▲</a><h2 id="name-table-of-contents">
+<a href="#name-table-of-contents" class="section-name selfRef">Table of Contents</a>
+        </h2>
+<nav class="toc"><ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1">
+            <p id="section-toc.1-1.1.1" class="keepWithNext"><a href="#section-1" class="auto internal xref">1</a>.  <a href="#name-introduction" class="internal xref">Introduction</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2">
+            <p id="section-toc.1-1.2.1"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-terms-and-definitions" class="internal xref">Terms and Definitions</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2.2.1">
+                <p id="section-toc.1-1.2.2.1.1" class="keepWithNext"><a href="#section-2.1" class="auto internal xref">2.1</a>.  <a href="#name-requirements-terminology" class="internal xref">Requirements Terminology</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2.2.2">
+                <p id="section-toc.1-1.2.2.2.1" class="keepWithNext"><a href="#section-2.2" class="auto internal xref">2.2</a>.  <a href="#name-notations" class="internal xref">Notations</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2.2.3">
+                <p id="section-toc.1-1.2.2.3.1"><a href="#section-2.3" class="auto internal xref">2.3</a>.  <a href="#name-definitions" class="internal xref">Definitions</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3">
+            <p id="section-toc.1-1.3.1"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-comparing-ecdsa-and-eddsa-c" class="internal xref">Comparing ECDSA and EdDSA certificates</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4">
+            <p id="section-toc.1-1.4.1"><a href="#section-4" class="auto internal xref">4</a>.  <a href="#name-the-basic-pki-feature-set" class="internal xref">The Basic PKI feature set</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5">
+            <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-getting-started-and-the-roo" class="internal xref">Getting started and the Root level</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1">
+                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-setting-up-the-environment" class="internal xref">Setting up the Environment</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2">
+                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-create-the-root-certificate" class="internal xref">Create the Root Certificate</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6">
+            <p id="section-toc.1-1.6.1"><a href="#section-6" class="auto internal xref">6</a>.  <a href="#name-the-intermediate-level" class="internal xref">The Intermediate level</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.1">
+                <p id="section-toc.1-1.6.2.1.1"><a href="#section-6.1" class="auto internal xref">6.1</a>.  <a href="#name-setting-up-the-intermediate" class="internal xref">Setting up the Intermediate Certificate Environment</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.2">
+                <p id="section-toc.1-1.6.2.2.1"><a href="#section-6.2" class="auto internal xref">6.2</a>.  <a href="#name-create-the-intermediate-cer" class="internal xref">Create the Intermediate Certificate</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.3">
+                <p id="section-toc.1-1.6.2.3.1"><a href="#section-6.3" class="auto internal xref">6.3</a>.  <a href="#name-create-a-server-ee-certific" class="internal xref">Create a Server EE Certificate</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.4">
+                <p id="section-toc.1-1.6.2.4.1"><a href="#section-6.4" class="auto internal xref">6.4</a>.  <a href="#name-create-a-client-ee-certific" class="internal xref">Create a Client EE Certificate</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7">
+            <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-the-8021ar-intermediate-lev" class="internal xref">The 802.1AR Intermediate level</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.1">
+                <p id="section-toc.1-1.7.2.1.1"><a href="#section-7.1" class="auto internal xref">7.1</a>.  <a href="#name-setting-up-the-8021ar-inter" class="internal xref">Setting up the 802.1AR Intermediate Certificate Environment</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.2">
+                <p id="section-toc.1-1.7.2.2.1"><a href="#section-7.2" class="auto internal xref">7.2</a>.  <a href="#name-create-an-8021ar-idevid-cer" class="internal xref">Create an 802.1AR iDevID Certificate</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8">
+            <p id="section-toc.1-1.8.1"><a href="#section-8" class="auto internal xref">8</a>.  <a href="#name-setting-up-a-crl-for-an-int" class="internal xref">Setting up a CRL for an Intermediate CA</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.1">
+                <p id="section-toc.1-1.8.2.1.1"><a href="#section-8.1" class="auto internal xref">8.1</a>.  <a href="#name-create-or-recreate-the-crl" class="internal xref">Create (or recreate) the CRL</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.2">
+                <p id="section-toc.1-1.8.2.2.1"><a href="#section-8.2" class="auto internal xref">8.2</a>.  <a href="#name-revoke-a-certificate" class="internal xref">Revoke a Certificate</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9">
+            <p id="section-toc.1-1.9.1"><a href="#section-9" class="auto internal xref">9</a>.  <a href="#name-setting-up-ocsp-for-an-inte" class="internal xref">Setting up OCSP for an Intermediate CA</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.1">
+                <p id="section-toc.1-1.9.2.1.1"><a href="#section-9.1" class="auto internal xref">9.1</a>.  <a href="#name-create-the-ocsp-certificate" class="internal xref">Create the OCSP Certificate</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.2">
+                <p id="section-toc.1-1.9.2.2.1"><a href="#section-9.2" class="auto internal xref">9.2</a>.  <a href="#name-revoke-a-certificate-2" class="internal xref">Revoke a Certificate</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.3">
+                <p id="section-toc.1-1.9.2.3.1"><a href="#section-9.3" class="auto internal xref">9.3</a>.  <a href="#name-testing-ocsp-with-openssl" class="internal xref">Testing OCSP with Openssl</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10">
+            <p id="section-toc.1-1.10.1"><a href="#section-10" class="auto internal xref">10</a>. <a href="#name-footnotes" class="internal xref">Footnotes</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.1">
+                <p id="section-toc.1-1.10.2.1.1"><a href="#section-10.1" class="auto internal xref">10.1</a>.  <a href="#name-certificate-serial-number" class="internal xref">Certificate Serial Number</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.2">
+                <p id="section-toc.1-1.10.2.2.1"><a href="#section-10.2" class="auto internal xref">10.2</a>.  <a href="#name-some-openssl-config-file-li" class="internal xref">Some OpenSSL config file limitations</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.3">
+                <p id="section-toc.1-1.10.2.3.1"><a href="#section-10.3" class="auto internal xref">10.3</a>.  <a href="#name-subjectaltname-support-now-" class="internal xref">subjectAltName support now works</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.4">
+                <p id="section-toc.1-1.10.2.4.1"><a href="#section-10.4" class="auto internal xref">10.4</a>.  <a href="#name-certificates-with-only-subj" class="internal xref">Certificates with only subjectAltName</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.5">
+                <p id="section-toc.1-1.10.2.5.1"><a href="#section-10.5" class="auto internal xref">10.5</a>.  <a href="#name-der-support-or-lack-thereof" class="internal xref">DER support, or lack thereof</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11">
+            <p id="section-toc.1-1.11.1"><a href="#section-11" class="auto internal xref">11</a>. <a href="#name-iana-considerations" class="internal xref">IANA Considerations</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12">
+            <p id="section-toc.1-1.12.1"><a href="#section-12" class="auto internal xref">12</a>. <a href="#name-security-considerations" class="internal xref">Security Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.1">
+                <p id="section-toc.1-1.12.2.1.1"><a href="#section-12.1" class="auto internal xref">12.1</a>.  <a href="#name-adequate-randomness" class="internal xref">Adequate Randomness</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.2">
+                <p id="section-toc.1-1.12.2.2.1"><a href="#section-12.2" class="auto internal xref">12.2</a>.  <a href="#name-key-pair-theft" class="internal xref">Key pair Theft</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13">
+            <p id="section-toc.1-1.13.1"><a href="#section-13" class="auto internal xref">13</a>. <a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14">
+            <p id="section-toc.1-1.14.1"><a href="#section-14" class="auto internal xref">14</a>. <a href="#name-references" class="internal xref">References</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14.2.1">
+                <p id="section-toc.1-1.14.2.1.1"><a href="#section-14.1" class="auto internal xref">14.1</a>.  <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14.2.2">
+                <p id="section-toc.1-1.14.2.2.1"><a href="#section-14.2" class="auto internal xref">14.2</a>.  <a href="#name-informative-references" class="internal xref">Informative References</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15">
+            <p id="section-toc.1-1.15.1"><a href="#appendix-A" class="auto internal xref">Appendix A</a>.  <a href="#name-openssl-config-file" class="internal xref">OpenSSL config file</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16">
+            <p id="section-toc.1-1.16.1"><a href="#appendix-B" class="auto internal xref"></a><a href="#name-authors-addresses" class="internal xref">Authors' Addresses</a></p>
+</li>
+        </ul>
+</nav>
+</section>
+</div>
+<div id="intro">
+<section id="section-1">
+      <h2 id="name-introduction">
+<a href="#section-1" class="section-number selfRef">1. </a><a href="#name-introduction" class="section-name selfRef">Introduction</a>
+      </h2>
+<p id="section-1-1">
+ The IETF has a plethora of security solutions targeted at IoT.  Yet 
+ all too many IoT products are tested and deployed with no or 
+ improperly configured security.  In particular resource constrained 
+ IoT devices and non-IP IoT networks have not been well served in 
+ the IETF.<a href="#section-1-1" class="pilcrow">¶</a></p>
+<p id="section-1-2">
+ Additionally, more IETF (e.g. DOTS, NETCONF) efforts are requiring 
+ secure identities, but are vague on the nature of these identities 
+ other than to recommend use of X.509 digital certificates and 
+ perhaps TLS.<a href="#section-1-2" class="pilcrow">¶</a></p>
+<p id="section-1-3">
+ This effort provides the steps, using the openSSL application, to 
+ create such a PKI of ECDSA <span>[<a href="#DOI_10.6028_NIST.FIPS.186-5" class="cite xref">NIST.FIPS.186-5</a>]</span>, ED25519, 
+ or ED448 (<span>[<a href="#RFC8032" class="cite xref">RFC8032</a>]</span> and <span>[<a href="#DOI_10.6028_NIST.FIPS.186-5" class="cite xref">NIST.FIPS.186-5</a>]</span>) 
+ certificates.  The goal is that any developer or tester can follow 
+ these steps, create the basic objects needed and establish the 
+ validity of the standard/program design.  This guide can even be 
+ used to create a production PKI, though additional steps need to be 
+ taken. This could be very useful to a small vendor needing to 
+ include <span><a href="#DOI_10.1109_IEEESTD.2018.8423794" class="internal xref">802.1AR</a> [<a href="#DOI_10.1109_IEEESTD.2018.8423794" class="cite xref">IEEE 802.1AR</a>]</span> that references <span>[<a href="#RFC4108" class="cite xref">RFC4108</a>]</span> iDevIDs in their product (Note: 
+ EdDSA certificates are not supported in 802.1AR-2018; this is for 
+ future work).<a href="#section-1-3" class="pilcrow">¶</a></p>
+<p id="section-1-4">
+ This guide was originally developed with openSSL 1.1.1; it is 
+ updated using openSSL 3.0.9 on Fedora 38 and creates PEM-based 
+ certificates.  It closely follows <span>[<a href="#I-D.moskowitz-ecdsa-pki" class="cite xref">ecdsa-pki</a>]</span>.  Current updates follow some 
+ lessons learned in developing <span>[<a href="#I-D.moskowitz-drip-dki" class="cite xref">drip-dki</a>]</span><a href="#section-1-4" class="pilcrow">¶</a></p>
+<p id="section-1-5">
+ Previous versions had multiple openssl config files.  This version 
+ has a single config file to support all the openssl commands used 
+ herein.<a href="#section-1-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="terms">
+<section id="section-2">
+      <h2 id="name-terms-and-definitions">
+<a href="#section-2" class="section-number selfRef">2. </a><a href="#name-terms-and-definitions" class="section-name selfRef">Terms and Definitions</a>
+      </h2>
+<section id="section-2.1">
+        <h3 id="name-requirements-terminology">
+<a href="#section-2.1" class="section-number selfRef">2.1. </a><a href="#name-requirements-terminology" class="section-name selfRef">Requirements Terminology</a>
+        </h3>
+<p id="section-2.1-1">
+ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL
+ NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED",
+ "MAY", and "OPTIONAL" in this document are to be interpreted as
+ described in BCP 14 <span>[<a href="#RFC2119" class="cite xref">RFC2119</a>]</span> <span>[<a href="#RFC8174" class="cite xref">RFC8174</a>]</span> when, and only when, they appear in all
+ capitals, as shown here.<a href="#section-2.1-1" class="pilcrow">¶</a></p>
+</section>
+<section id="section-2.2">
+        <h3 id="name-notations">
+<a href="#section-2.2" class="section-number selfRef">2.2. </a><a href="#name-notations" class="section-name selfRef">Notations</a>
+        </h3>
+<p id="section-2.2-1"> This section will contain notations<a href="#section-2.2-1" class="pilcrow">¶</a></p>
+</section>
+<section id="section-2.3">
+        <h3 id="name-definitions">
+<a href="#section-2.3" class="section-number selfRef">2.3. </a><a href="#name-definitions" class="section-name selfRef">Definitions</a>
+        </h3>
+<p id="section-2.3-1">
+                There are no draft specific definitions at this time<a href="#section-2.3-1" class="pilcrow">¶</a></p>
+</section>
+</section>
+</div>
+<div id="ECDSA">
+<section id="section-3">
+      <h2 id="name-comparing-ecdsa-and-eddsa-c">
+<a href="#section-3" class="section-number selfRef">3. </a><a href="#name-comparing-ecdsa-and-eddsa-c" class="section-name selfRef">Comparing ECDSA and EdDSA certificates</a>
+      </h2>
+<p id="section-3-1">
+ There are two differences between ECDSA and EdDSA certificates
+ that impact the use of openSSL.  There are no options with
+ EdDSA, and thus the pkeyopt variable is not used.<a href="#section-3-1" class="pilcrow">¶</a></p>
+<p id="section-3-2">
+ Likewise there are no hash options.  The hashes used by EdDSA 
+ are preset and not selectable.  As such, none of the hash 
+ options should be needed.<a href="#section-3-2" class="pilcrow">¶</a></p>
+<p id="section-3-3">
+ It should be noted here that ED25519 certificates can be ~100 
+ bytes smaller than corresponding ECDSA certificates not using 
+ ECDSA point-compression.  This size difference may be critical 
+ in some devices and communication technologies.  ED448 
+ certificates are similar in size with ECDSA p256 certificates 
+ yet with a stronger security claim.<a href="#section-3-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="BasicPKI">
+<section id="section-4">
+      <h2 id="name-the-basic-pki-feature-set">
+<a href="#section-4" class="section-number selfRef">4. </a><a href="#name-the-basic-pki-feature-set" class="section-name selfRef">The Basic PKI feature set</a>
+      </h2>
+<p id="section-4-1">
+ A basic PKI has two levels of hierarchy: Root and Intermediate. The
+ Root level has the greatest risk, and is the least used.  It only
+ signs the Intermediate level signing certificate.  As such, once
+ the Root level is created and signs the Intermediate level
+ certificate it can be locked up.  In fact, the Root level could
+ exist completely on a uSD boot card for an ARM small computer like
+ a RaspberryPi.  A copy of this card can be made and securely stored
+ in a different location.<a href="#section-4-1" class="pilcrow">¶</a></p>
+<p id="section-4-2">
+ The Root level contains the Root certificate private key, a 
+ database of all root signed certificates, and the public root 
+ certificate.  It can also contain the Intermediate level public 
+ certificate and a Root level CRL.<a href="#section-4-2" class="pilcrow">¶</a></p>
+<p id="section-4-3">
+ The Intermediate level contains the Intermediate certificate
+ private key, the public certificate, a database of all its signed
+ certificates, the certificate trust chain, and Intermediate level
+ CRL.  It can also contain the End Entity public certificates.  The
+ private key file needs to be keep securely.  For example as with
+ the Root level, a mSD image for an ARM computer could contain the
+ complete Intermediate level. This image is kept offline.  The End
+ Entity CSR is copied to it, signed, and then the signed certificate
+ and updated database are moved to the public image that lacks the
+ private key.<a href="#section-4-3" class="pilcrow">¶</a></p>
+<p id="section-4-4">
+ For a simple test PKI, all files can be kept on a single system
+ that is managed by the tester.<a href="#section-4-4" class="pilcrow">¶</a></p>
+<p id="section-4-5">
+ End Entities create a key pair and a Certificate Signing Request
+ (CSR).  The private key is stored securely.  The CSR is delivered
+ to the Intermediate level which uses the CSR to create the End
+ Entity certificate.  This certificate, along with the trust chain
+ back to the root, is then returned to the End Entity.<a href="#section-4-5" class="pilcrow">¶</a></p>
+<p id="section-4-6">
+ There is more to a PKI, but this suffices for most development and
+ testing needs.<a href="#section-4-6" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="RootLevel">
+<section id="section-5">
+      <h2 id="name-getting-started-and-the-roo">
+<a href="#section-5" class="section-number selfRef">5. </a><a href="#name-getting-started-and-the-roo" class="section-name selfRef">Getting started and the Root level</a>
+      </h2>
+<p id="section-5-1">
+ This guide was originally developed on a Fedora 29-beta armv7hl 
+ system (Cubieboard2 SoC).  It should work on most Linux and similar 
+ systems that support openSSL 1.1.1.  Current work has been on with 
+ openSSL 3.0.9 on Fedora 38.  All work was done in a terminal window 
+ with extensive "cutting and pasting" from this draft guide into the 
+ terminal window.  Users of this guide may find different behaviors 
+ based on their system.<a href="#section-5-1" class="pilcrow">¶</a></p>
+<p id="section-5-2">
+ The goal for future versions is to upgrade the sample "copy and 
+ paste" commands to extractable bash scripts.<a href="#section-5-2" class="pilcrow">¶</a></p>
+<div id="FirstStep">
+<section id="section-5.1">
+        <h3 id="name-setting-up-the-environment">
+<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-setting-up-the-environment" class="section-name selfRef">Setting up the Environment</a>
+        </h3>
+<p id="section-5.1-1">
+    The first step is to create the PKI environment.  Modify the
+    variables to suit your needs.<a href="#section-5.1-1" class="pilcrow">¶</a></p>
+<div id="Fig_1">
+<div class="lang-bash sourcecode" id="section-5.1-2">
+<pre>
+
+export dir=/root/ca
+export cadir=/root/ca
+export format=pem
+export algorithm=ed25519 # or ed448
+# or for ECDSA with P-256:
+# export algorithm="ec -pkeyopt ec_paramgen_curve:prime256v1"
+mkdir $dir
+cd $dir
+mkdir certs crl csr newcerts private
+chmod 700 private
+touch index.txt
+touch serial
+sn=8
+
+countryName="/C=US"
+stateOrProvinceName="/ST=MI"
+localityName="/L=Oak Park"
+organizationName="/O=HTT Consulting"
+#organizationalUnitName="/OU="
+organizationalUnitName=
+commonName="/CN=Root CA"
+DN=$countryName$stateOrProvinceName$localityName
+DN=$DN$organizationName$organizationalUnitName$commonName
+echo $DN
+export subjectAltName=email:postmaster@htt-consult.com
+
+</pre><a href="#section-5.1-2" class="pilcrow">¶</a>
+</div>
+</div>
+<div class="alignLeft art-text artwork" id="section-5.1-3">
+<pre>
+
+
+
+where:
+
+dir       : Directory for certificate files
+
+cadir     : Directory for Root certificate files
+
+format    : File encoding:  PEM or DER
+               At this time only PEM works
+
+algorithm : EC algorithm used in certificates
+
+sn        : Serial Number length in bytes
+               For a public CA the range is 8 to 20
+
+DN        : Distinguished Name
+               Policy is LOOSE; Recommended at least
+               providing Common Name
+
+</pre><a href="#section-5.1-3" class="pilcrow">¶</a>
+</div>
+<p id="section-5.1-4">
+ The DN and SAN fields are examples.  Change them to appropriate
+ values.  If you leave one blank, it will be left out of the
+ Certificate.  "OU" above is an example of an empty DN object.<a href="#section-5.1-4" class="pilcrow">¶</a></p>
+<blockquote id="section-5.1-5">
+ Create the file, $dir/openssl.cnf from the contents in <a href="#configfile" class="auto internal xref">Appendix A</a>.<a href="#section-5.1-5" class="pilcrow">¶</a>
+</blockquote>
+</section>
+</div>
+<div id="RootCert">
+<section id="section-5.2">
+        <h3 id="name-create-the-root-certificate">
+<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-create-the-root-certificate" class="section-name selfRef">Create the Root Certificate</a>
+        </h3>
+<p id="section-5.2-1">
+ Next are the openssl commands to create the Root certificate
+ keypair, and the Root certificate.  Included are commands to view
+ the file contents.<a href="#section-5.2-1" class="pilcrow">¶</a></p>
+<p id="section-5.2-2">
+ Environment variables are used to provide considerable flexibility 
+ in the certificate contents.  One change is to move from 
+ certificate life in days to validity notBefore and notAfter days. 
+ This is not supported in the standard self-sign root certificate 
+ creation, so a "throw-away" self-signed certificate is created 
+ first which is used to sign a certificate with the same key and 
+ proper validity dates which is then the root certificate.<a href="#section-5.2-2" class="pilcrow">¶</a></p>
+<p id="section-5.2-3">
+ It is not uncommon to get warning messages in "openssl ca" commands 
+ on not including some value it expects.  For example a warning of 
+ not having "default_days", as we are using actual validity dates.  
+ These can be ignored.<a href="#section-5.2-3" class="pilcrow">¶</a></p>
+<p id="section-5.2-4">
+ OpenSSL does not allow empty variables in the config file.  So in 
+ the example below, certextkeyusage is empty.  There are a few 
+ req_ext sections (e.g. req_ext_bkes, bke, bks, and bk) to cover the 
+ more common sets of extensions used.  If a different set is needed, 
+ add it to the config file.<a href="#section-5.2-4" class="pilcrow">¶</a></p>
+<div id="Fig_2.1">
+<div class="lang-bash sourcecode" id="section-5.2-5">
+<pre>
+
+# Create passworded keypair file
+
+export encryptkey=""
+#export encryptkey="-aes256"   # use to password protect private key
+
+openssl genpkey $encryptkey -algorithm $algorithm\
+    -outform $format -out $dir/private/ca.key.$format
+# For ECDSA point-compression
+#openssl ec -conv_form compressed \
+#    -in $dir/private/ca.key.$format\
+#    -out $dir/private/ca.key.$format
+chmod 400 $dir/private/ca.key.$format
+openssl pkey -inform $format -in $dir/private/ca.key.$format\
+    -text -noout
+
+</pre><a href="#section-5.2-5" class="pilcrow">¶</a>
+</div>
+</div>
+<div id="Fig_2.2">
+<div class="lang-bash sourcecode" id="section-5.2-6">
+<pre>
+
+# Create Self-signed Throw-away Certificate file
+
+export signprv="ca"
+export signcert="cabase"
+export basicConstraints="critical, CA:true"
+export certkeyusage="critical, keyCertSign"
+export certextkeyusage=""
+export hwType="place holder" # all ENV in config must
+export hwSerialNum="place holder" #   be define
+export startdate=20230801000000Z  # YYYYMMDDHHMMSSZ
+export enddate=20430731000000Z  # YYYYMMDDHHMMSSZ
+
+openssl req -config $dir/openssl.cnf\
+     -set_serial 0x$(openssl rand -hex $sn)\
+     -keyform $format -outform $format\
+     -key $dir/private/ca.key.$format -subj "$DN"\
+     -new -x509 -extensions v3_ca\
+     -out $dir/certs/$signcert.cert.$format
+
+openssl x509 -in $dir/certs/$signcert.cert.$format\
+      -inform $format -text -noout
+openssl x509 -purpose -inform $format\
+     -in $dir/certs/$signcert.cert.$format -inform $format
+
+</pre><a href="#section-5.2-6" class="pilcrow">¶</a>
+</div>
+</div>
+<div id="Fig_2.3">
+<div class="lang-bash sourcecode" id="section-5.2-7">
+<pre>
+
+# Create Self-signed Root Certificate file
+
+openssl req -config $dir/openssl.cnf -reqexts req_ext_bk\
+    -key $dir/private/ca.key.$format \
+    -subj "$DN" -new -out $dir/csr/ca.csr.$format
+
+openssl req -text -noout -verify\
+    -in $dir/csr/ca.csr.$format
+
+openssl rand -hex $sn &gt; $dir/serial # hex 8 is minimum, 20 is maximum
+
+openssl ca -config $dir/openssl.cnf\
+    -extensions v3_ca -notext \
+    -in $dir/csr/ca.csr.$format\
+    -out $dir/certs/ca.cert.$format
+chmod 444 $dir/certs/ca.cert.$format
+
+openssl x509 -inform $format -in $dir/certs/ca.cert.$format\
+     -text -noout
+openssl x509 -purpose -inform $format\
+     -in $dir/certs/ca.cert.$format -inform $format
+
+openssl x509 -in $dir/certs/ca.cert.$format\
+      -out $dir/certs/ca.cert.der -outform der
+
+</pre><a href="#section-5.2-7" class="pilcrow">¶</a>
+</div>
+</div>
+</section>
+</div>
+</section>
+</div>
+<div id="IntermediateLevel">
+<section id="section-6">
+      <h2 id="name-the-intermediate-level">
+<a href="#section-6" class="section-number selfRef">6. </a><a href="#name-the-intermediate-level" class="section-name selfRef">The Intermediate level</a>
+      </h2>
+<div id="NextStep">
+<section id="section-6.1">
+        <h3 id="name-setting-up-the-intermediate">
+<a href="#section-6.1" class="section-number selfRef">6.1. </a><a href="#name-setting-up-the-intermediate" class="section-name selfRef">Setting up the Intermediate Certificate Environment</a>
+        </h3>
+<p id="section-6.1-1">
+ The next part is to create the Intermediate PKI environment. Modify
+ the variables to suit your needs.  In particular, set the variables
+ for CRL and/or OCSP support.<a href="#section-6.1-1" class="pilcrow">¶</a></p>
+<div id="Fig_3.1">
+<div class="lang-bash sourcecode" id="section-6.1-2">
+<pre>
+
+export dir=$cadir/intermediate
+mkdir $dir
+cd $dir
+mkdir certs crl csr newcerts private
+chmod 700 private
+touch index.txt
+sn=8 # hex 8 is minimum, 20 is maximum
+echo 1000 &gt; $dir/crlnumber
+
+</pre><a href="#section-6.1-2" class="pilcrow">¶</a>
+</div>
+</div>
+<div id="Fig_3.2">
+<div class="lang-bash sourcecode" id="section-6.1-3">
+<pre>
+
+# cd $dir
+export crlDP=
+# For CRL support use uncomment these:
+#crl=intermediate.crl.pem
+#crlurl=www.htt-consult.com/pki/$crl
+#export crlDP="URI:http://$crlurl"
+export default_crl_days=30
+export ocspIAI=
+# For OCSP support use uncomment these:
+#ocspurl=ocsp.htt-consult.com
+#export ocspIAI="OCSP;URI:http://$ocspurl"
+export signprv="ca"
+export signcert="ca"
+export basicConstraints="critical, CA:true, pathlen:0"
+export certkeyusage="critical, cRLSign, keyCertSign"
+export certextkeyusage=""
+
+commonName="/CN=Signing CA"
+DN=$countryName$stateOrProvinceName$localityName$organizationName
+DN=$DN$organizationalUnitName$commonName
+echo $DN
+
+</pre><a href="#section-6.1-3" class="pilcrow">¶</a>
+</div>
+</div>
+<blockquote id="section-6.1-4">
+ The Intermediate level CA now uses the same openssl config file as 
+ the root.  Just copy it from the main directory into the 
+ Intermediate.<a href="#section-6.1-4" class="pilcrow">¶</a>
+</blockquote>
+</section>
+</div>
+<div id="IntermediateCert">
+<section id="section-6.2">
+        <h3 id="name-create-the-intermediate-cer">
+<a href="#section-6.2" class="section-number selfRef">6.2. </a><a href="#name-create-the-intermediate-cer" class="section-name selfRef">Create the Intermediate Certificate</a>
+        </h3>
+<p id="section-6.2-1">
+ Here are the openssl commands to create the Intermediate
+ certificate keypair, Intermediate certificate signed request (CSR),
+ and the Intermediate certificate.  Included are commands to view
+ the file contents.<a href="#section-6.2-1" class="pilcrow">¶</a></p>
+<div id="Fig_4.1">
+<div class="lang-bash sourcecode" id="section-6.2-2">
+<pre>
+
+# Create passworded keypair file
+
+export encryptkey=""
+#export encryptkey="-aes256"   # use to password protect private key
+
+openssl genpkey $encryptkey -algorithm $algorithm\
+    -outform $format -out $dir/private/intermediate.key.$format
+# For ECDSA point-compression
+#openssl ec -conv_form compressed \
+#    -in $dir/private/intermediate.key.$format\
+#    -out $dir/private/intermediate.key.$format
+chmod 400 $dir/private/intermediate.key.$format
+openssl pkey -inform $format\
+    -in $dir/private/intermediate.key.$format -text -noout
+
+</pre><a href="#section-6.2-2" class="pilcrow">¶</a>
+</div>
+</div>
+<div id="Fig_4.2">
+<div class="lang-bash sourcecode" id="section-6.2-3">
+<pre>
+
+# Create the CSR
+
+openssl req -config $cadir/openssl.cnf -reqexts req_ext_bk\
+    -key $dir/private/intermediate.key.$format \
+    -keyform $format -outform $format -subj "$DN" -new\
+    -out $dir/csr/intermediate.csr.$format
+openssl req -text -noout -verify -inform $format\
+    -in $dir/csr/intermediate.csr.$format
+
+</pre><a href="#section-6.2-3" class="pilcrow">¶</a>
+</div>
+</div>
+<div id="Fig_4.3">
+<div class="lang-bash sourcecode" id="section-6.2-4">
+<pre>
+
+# Create Intermediate Certificate file
+
+export startdate=230801000000Z  # YYMMDDHHMMSSZ
+export enddate=20340731000000Z  # YYYYMMDDHHMMSSZ
+openssl rand -hex $sn &gt; $dir/serial # hex 8 is minimum, 20 is maximum
+# Note 'openssl ca' does not support DER format
+
+openssl ca -config $cadir/openssl.cnf\
+    -extensions v3_intermediate_ca -notext \
+    -in $dir/csr/intermediate.csr.$format\
+    -out $dir/certs/intermediate.cert.pem
+
+chmod 444 $dir/certs/intermediate.cert.$format
+
+openssl verify -CAfile $cadir/certs/ca.cert.$format\
+     $dir/certs/intermediate.cert.$format
+
+openssl x509 -noout -text -in $dir/certs/intermediate.cert.$format
+openssl x509 -in $dir/certs/intermediate.cert.$format\
+      -out $dir/certs/intermediate.cert.der -outform der
+
+# Create the certificate chain file
+
+cat $dir/certs/intermediate.cert.$format\
+   $cadir/certs/ca.cert.$format &gt; $dir/certs/ca-chain.cert.$format
+chmod 444 $dir/certs/ca-chain.cert.$format
+
+</pre><a href="#section-6.2-4" class="pilcrow">¶</a>
+</div>
+</div>
+</section>
+</div>
+<div id="ServerCert">
+<section id="section-6.3">
+        <h3 id="name-create-a-server-ee-certific">
+<a href="#section-6.3" class="section-number selfRef">6.3. </a><a href="#name-create-a-server-ee-certific" class="section-name selfRef">Create a Server EE Certificate</a>
+        </h3>
+<p id="section-6.3-1">
+ Here are the openssl commands to create a Server End Entity
+ certificate keypair, Server certificate signed request (CSR),
+ and the Server certificate.  Included are commands to view
+ the file contents.<a href="#section-6.3-1" class="pilcrow">¶</a></p>
+<p id="section-6.3-2">
+ If EE certificates are created at a different time than the 
+ Intermediate signing certificate, care needs to be taken that all 
+ variables are properly reset.<a href="#section-6.3-2" class="pilcrow">¶</a></p>
+<div id="Fig_5.1">
+<div class="lang-bash sourcecode" id="section-6.3-3">
+<pre>
+
+export cadir=$cadir/intermediate
+commonName="/CN=Web Services"
+DN=$countryName$stateOrProvinceName$localityName
+DN=$DN$organizationName$organizationalUnitName$commonName
+echo $DN
+serverfqdn=www.example.com
+emailaddr=postmaster@htt-consult.com
+export subjectAltName="DNS:$serverfqdn, email:$emailaddr"
+echo $subjectAltName
+export signprv="intermediate"
+export signcert="intermediate"
+export basicConstraints="CA:FALSE"
+export certkeyusage="critical, digitalSignature, keyEncipherment"
+export certextkeyusage="serverAuth"
+export encryptkey=""
+#export encryptkey="-aes256"   # use to password protect private key
+
+openssl genpkey $encryptkey -algorithm $algorithm\
+    -out $dir/private/$serverfqdn.key.$format
+# For ECDSA point-compression
+#openssl ec -conv_form compressed \
+#    -in $dir/private/$serverfqdn.key.$format\
+#    -out $dir/private/$serverfqdn.key.$format
+chmod 400 $dir/private/$serverfqdn.key.$format
+openssl pkey -in $dir/private/$serverfqdn.key.$format -text -noout
+openssl req -config $cadir/openssl.cnf -reqexts req_ext_bkes\
+    -key $dir/private/$serverfqdn.key.$format \
+    -subj "$DN" -new -out $dir/csr/$serverfqdn.csr.$format
+
+openssl req -text -noout -verify -in $dir/csr/$serverfqdn.csr.$format
+
+</pre><a href="#section-6.3-3" class="pilcrow">¶</a>
+</div>
+</div>
+<div id="Fig_5.2">
+<div class="lang-bash sourcecode" id="section-6.3-4">
+<pre>
+
+export startdate=230801000000Z  # YYMMDDHHMMSSZ
+export enddate=240731000000Z  # YYMMDDHHMMSSZ
+openssl rand -hex $sn &gt; $dir/serial # hex 8 is minimum, 20 is maximum
+# Note 'openssl ca' does not support DER format
+openssl ca -config $cadir/openssl.cnf\
+    -extensions server_cert -notext \
+    -in $dir/csr/$serverfqdn.csr.$format\
+    -out $dir/certs/$serverfqdn.cert.$format
+chmod 444 $dir/certs/$serverfqdn.cert.$format
+
+openssl verify -CAfile $dir/certs/ca-chain.cert.$format\
+     $dir/certs/$serverfqdn.cert.$format
+openssl x509 -noout -text -in $dir/certs/$serverfqdn.cert.$format
+
+openssl x509 -in $dir/certs/$serverfqdn.cert.$format\
+      -out $dir/certs/$serverfqdn.cert.der -outform der
+
+</pre><a href="#section-6.3-4" class="pilcrow">¶</a>
+</div>
+</div>
+</section>
+</div>
+<div id="ClientCert">
+<section id="section-6.4">
+        <h3 id="name-create-a-client-ee-certific">
+<a href="#section-6.4" class="section-number selfRef">6.4. </a><a href="#name-create-a-client-ee-certific" class="section-name selfRef">Create a Client EE Certificate</a>
+        </h3>
+<p id="section-6.4-1">
+ Here are the openssl commands to create a Client End Entity
+ certificate keypair, Client certificate signed request (CSR),
+ and the Client certificate.  Included are commands to view
+ the file contents.<a href="#section-6.4-1" class="pilcrow">¶</a></p>
+<p id="section-6.4-2">
+ For a Client certificate with "no" subject and only a 
+ subjectAltName, set the variable DN to "/".  Also the 
+ subjectAltName MUST be marked "critical".<a href="#section-6.4-2" class="pilcrow">¶</a></p>
+<div id="Fig_6.1">
+<div class="lang-bash sourcecode" id="section-6.4-3">
+<pre>
+
+commonName=
+UserID="/UID=rgm"
+DN=$countryName$stateOrProvinceName$localityName
+DN=$DN$organizationName$organizationalUnitName$commonName$UserID
+echo $DN
+clientemail=rgm@example.com
+export subjectAltName="email:$clientemail"
+echo $subjectAltName
+export basicConstraints="CA:FALSE"
+export certkeyusage="critical, digitalSignature, keyEncipherment"
+export certextkeyusage=""
+export encryptkey=""
+#export encryptkey="-aes256"   # use to password protect private key
+
+openssl genpkey $encryptkey -algorithm $algorithm\
+    -out $dir/private/$clientemail.key.$format
+# For ECDSA point-compression
+#openssl ec -conv_form compressed \
+#    -in $dir/private/$clientemail.key.$format\
+#    -out $dir/private/$clientemail.key.$format
+chmod 400 $dir/private/$clientemail.key.$format
+openssl pkey -in $dir/private/$clientemail.key.$format -text -noout
+openssl req -config $dir/openssl.cnf -reqexts req_ext_bks\
+    -key $dir/private/$clientemail.key.$format \
+    -subj "$DN" -new -out $dir/csr/$clientemail.csr.$format
+
+openssl req -text -noout -verify\
+    -in $dir/csr/$clientemail.csr.$format
+
+</pre><a href="#section-6.4-3" class="pilcrow">¶</a>
+</div>
+</div>
+<div id="Fig_6.2">
+<div class="lang-bash sourcecode" id="section-6.4-4">
+<pre>
+
+export startdate=230801000000Z  # YYMMDDHHMMSSZ
+export enddate=240731000000Z  # YYMMDDHHMMSSZ
+openssl rand -hex $sn &gt; $dir/serial # hex 8 is minimum, 20 is maximum
+# Note 'openssl ca' does not support DER format
+openssl ca -config $dir/openssl.cnf\
+    -extensions usr_cert -notext \
+    -in $dir/csr/$clientemail.csr.$format\
+    -out $dir/certs/$clientemail.cert.$format
+chmod 444 $dir/certs/$clientemail.cert.$format
+
+openssl verify -CAfile $dir/certs/ca-chain.cert.$format\
+     $dir/certs/$clientemail.cert.$format
+openssl x509 -noout -text -in $dir/certs/$clientemail.cert.$format
+
+openssl x509 -in $dir/certs/$clientemail.cert.$format\
+      -out $dir/certs/$clientemail.cert.der -outform der
+
+</pre><a href="#section-6.4-4" class="pilcrow">¶</a>
+</div>
+</div>
+</section>
+</div>
+</section>
+</div>
+<div id="Intermediate8021ARLevel">
+<section id="section-7">
+      <h2 id="name-the-8021ar-intermediate-lev">
+<a href="#section-7" class="section-number selfRef">7. </a><a href="#name-the-8021ar-intermediate-lev" class="section-name selfRef">The 802.1AR Intermediate level</a>
+      </h2>
+<div id="Step8021AR">
+<section id="section-7.1">
+        <h3 id="name-setting-up-the-8021ar-inter">
+<a href="#section-7.1" class="section-number selfRef">7.1. </a><a href="#name-setting-up-the-8021ar-inter" class="section-name selfRef">Setting up the 802.1AR Intermediate Certificate Environment</a>
+        </h3>
+<p id="section-7.1-1">
+ There is no longer a need for a special 802.1AR Intermediate 
+ Certificate CA.  The regular Intermediate Certificate CA may be 
+ used for 802.1AR iDevID certificates.  A special CA may be set up 
+ by following the steps outlined in <a href="#IntermediateLevel" class="auto internal xref">Section 6</a>, but into a separate intermediate8021AR directory.<a href="#section-7.1-1" class="pilcrow">¶</a></p>
+<p id="section-7.1-2">
+ The difference with 802.1AR device certificates may be in including 
+ in the subject the device serial number.  802.1AR iDevID 
+ certificates MUST have an afterDate of forever and a specific 
+ subjectAltName with the hardwareModuleName OID <span>[<a href="#RFC4108" class="cite xref">RFC4108</a>]</span>. Details for these 
+ follow.<a href="#section-7.1-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="Cert8021AR">
+<section id="section-7.2">
+        <h3 id="name-create-an-8021ar-idevid-cer">
+<a href="#section-7.2" class="section-number selfRef">7.2. </a><a href="#name-create-an-8021ar-idevid-cer" class="section-name selfRef">Create an 802.1AR iDevID Certificate</a>
+        </h3>
+<p id="section-7.2-1">
+ Here are the openssl commands to create a 802.1AR iDevID
+ certificate keypair, iDevID certificate signed request (CSR), and
+ the iDevID certificate.  Included are commands to view the file
+ contents.<a href="#section-7.2-1" class="pilcrow">¶</a></p>
+<div id="Fig_9.1">
+<div class="lang-bash sourcecode" id="section-7.2-2">
+<pre>
+
+DevID=Wt1234
+countryName=
+stateOrProvinceName=
+localityName=
+organizationName="/O=HTT Consulting"
+organizationalUnitName="/OU=Devices"
+commonName=
+serialNumber="/serialNumber=$DevID"
+DN=$countryName$stateOrProvinceName$localityName
+DN=$DN$organizationName$organizationalUnitName$commonName
+DN=$DN$serialNumber
+echo $DN
+
+# hwType is OID for HTT Consulting, devices, sensor widgets
+export hwType=1.3.6.1.4.1.6715.10.1
+export hwSerialNum=01020304 # Some hex
+export subjectAltName="otherName:1.3.6.1.5.5.7.8.4;SEQ:hmodname"
+echo  $hwType - $hwSerialNum
+
+openssl genpkey -algorithm $algorithm\
+    -out $dir/private/$DevID.key.$format
+# For ECDSA point-compression
+#openssl ec -conv_form compressed \
+#    -in $dir/private/$DevID.key.$format\
+#    -out $dir/private/$DevID.key.$format
+chmod 400 $dir/private/$DevID.key.$format
+openssl pkey -in $dir/private/$DevID.key.$format -text -noout
+openssl req -config $dir/openssl.cnf -reqexts req_ext_8021AR \
+    -key $dir/private/$DevID.key.$format \
+    -subj "$DN" -new -out $dir/csr/$DevID.csr.$format
+
+openssl req -text -noout -verify\
+    -in $dir/csr/$DevID.csr.$format
+openssl asn1parse -i -in $dir/csr/$DevID.csr.pem
+# offset of start of hardwareModuleName and use that in place of 169
+openssl asn1parse -i -strparse 169 -in $dir/csr/$DevID.csr.pem
+
+</pre><a href="#section-7.2-2" class="pilcrow">¶</a>
+</div>
+</div>
+<div id="Fig_9.2">
+<div class="lang-bash sourcecode" id="section-7.2-3">
+<pre>
+
+export startdate=230801000000Z  # YYMMDDHHMMSSZ
+export enddate=99991231235959Z # per IEEE 802.1AR
+openssl rand -hex $sn &gt; $dir/serial # hex 8 is minimum, 20 is maximum
+# Note 'openssl ca' does not support DER format
+openssl ca -config $dir/openssl.cnf\
+    -extensions 8021ar_idevid -notext \
+    -in $dir/csr/$DevID.csr.$format\
+    -out $dir/certs/$DevID.cert.$format
+chmod 444 $dir/certs/$DevID.cert.$format
+
+openssl verify -CAfile $dir/certs/ca-chain.cert.$format\
+     $dir/certs/$DevID.cert.$format
+openssl x509 -noout -text -in $dir/certs/$DevID.cert.$format
+openssl asn1parse -i -in $dir/certs/$DevID.cert.pem
+
+# offset of start of hardwareModuleName and use that in place of 367
+openssl asn1parse -i -strparse 367 -in $dir/certs/$DevID.cert.pem
+
+openssl x509 -in $dir/certs/$DevID.cert.$format\
+      -out $dir/certs/$DevID.cert.der -outform der
+
+</pre><a href="#section-7.2-3" class="pilcrow">¶</a>
+</div>
+</div>
+</section>
+</div>
+</section>
+</div>
+<div id="CRL">
+<section id="section-8">
+      <h2 id="name-setting-up-a-crl-for-an-int">
+<a href="#section-8" class="section-number selfRef">8. </a><a href="#name-setting-up-a-crl-for-an-int" class="section-name selfRef">Setting up a CRL for an Intermediate CA</a>
+      </h2>
+<p id="section-8-1">
+ This part provides CRL support to an Intermediate CA.  In this memo
+ it applies to both Intermediate CAs.  Set the crlDistributionPoints
+ as provided via the environment variables.<a href="#section-8-1" class="pilcrow">¶</a></p>
+<div id="createCRL">
+<section id="section-8.1">
+        <h3 id="name-create-or-recreate-the-crl">
+<a href="#section-8.1" class="section-number selfRef">8.1. </a><a href="#name-create-or-recreate-the-crl" class="section-name selfRef">Create (or recreate) the CRL</a>
+        </h3>
+<p id="section-8.1-1">
+ It is simple to create the CRL.  The CRL consists of the
+ certificates flagged with an R (Revoked) in index.txt:<a href="#section-8.1-1" class="pilcrow">¶</a></p>
+<div id="Fig_10">
+<div class="lang-bash sourcecode" id="section-8.1-2">
+<pre>
+
+# Select which Intermediate level
+intermediate=intermediate
+#intermediate=8021ARintermediate
+dir=$cadir/$intermediate
+crl=$intermediate.crl.pem
+cd $dir
+
+# Create CRL file
+openssl ca -config $dir/openssl.cnf \
+      -gencrl -out $dir/crl/$crl
+chmod 444 $dir/crl/$crl
+
+openssl crl -in $dir/crl/$crl -noout -text
+
+</pre><a href="#section-8.1-2" class="pilcrow">¶</a>
+</div>
+</div>
+</section>
+</div>
+<div id="RevokeCert">
+<section id="section-8.2">
+        <h3 id="name-revoke-a-certificate">
+<a href="#section-8.2" class="section-number selfRef">8.2. </a><a href="#name-revoke-a-certificate" class="section-name selfRef">Revoke a Certificate</a>
+        </h3>
+<p id="section-8.2-1">
+ Revoking a certificate is a two step process.  First identify the
+ target certificate, examples are listed below.  Revoke it then
+ publish a new CRL.<a href="#section-8.2-1" class="pilcrow">¶</a></p>
+<div id="Fig_11">
+<div class="lang-bash sourcecode" id="section-8.2-2">
+<pre>
+
+targetcert=$serverfqdn
+#targetcert=$clientemail
+#targetcert=$DevID
+
+openssl ca -config $dir/openssl.cnf\
+ -revoke $dir/certs/$targetcert.cert.$format
+
+</pre><a href="#section-8.2-2" class="pilcrow">¶</a>
+</div>
+</div>
+<p id="section-8.2-3">
+ Recreate the CRL using <a href="#createCRL" class="auto internal xref">Section 8.1</a>.<a href="#section-8.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="OCSP">
+<section id="section-9">
+      <h2 id="name-setting-up-ocsp-for-an-inte">
+<a href="#section-9" class="section-number selfRef">9. </a><a href="#name-setting-up-ocsp-for-an-inte" class="section-name selfRef">Setting up OCSP for an Intermediate CA</a>
+      </h2>
+<p id="section-9-1">
+ This part provides OCSP support to an Intermediate CA.  In this
+ memo it applies to both Intermediate CAs.  Set the
+ authorityInfoAccess as provided via the environment variables.<a href="#section-9-1" class="pilcrow">¶</a></p>
+<div id="createOCSP">
+<section id="section-9.1">
+        <h3 id="name-create-the-ocsp-certificate">
+<a href="#section-9.1" class="section-number selfRef">9.1. </a><a href="#name-create-the-ocsp-certificate" class="section-name selfRef">Create the OCSP Certificate</a>
+        </h3>
+<p id="section-9.1-1">
+ OCSP needs a signing certificate.  This certificate must be signed
+ by the CA that signed the certificate being checked.  The steps to
+ create this certificate is the similar to a Server certificate for
+ the CA:<a href="#section-9.1-1" class="pilcrow">¶</a></p>
+<div id="Fig_12.1">
+<div class="lang-bash sourcecode" id="section-9.1-2">
+<pre>
+
+# Select which Intermediate level
+intermediate=intermediate
+#intermediate=8021ARintermediate
+# Optionally, password encrypt key pair
+encryptkey=
+#encryptkey=-aes256
+
+# Create the key pair in Intermediate level $intermediate
+cd $dir
+openssl genpkey -algorithm $algorithm\
+    $encryptkey -out $dir/private/$ocspurl.key.$format
+# For ECDSA point-compression
+#openssl ec -conv_form compressed \
+#    -in $dir/private/$ocspurl.key.$format\
+#    -out $dir/private/$ocspurl.key.$format
+chmod 400 $dir/private/$ocspurl.key.$format
+openssl pkey -in $dir/private/$ocspurl.key.$format -text -noout
+
+# Create CSR
+commonName="/CN=ocsp"
+DN=$countryName$stateOrProvinceName$localityName
+DN=$DN$organizationName$organizationalUnitName$commonName
+echo $DN
+emailaddr=postmaster@htt-consult.com
+export subjectAltName="DNS:$ocspurl, email:$emailaddr"
+echo $subjectAltName
+openssl req -config $dir/openssl.cnf -reqexts req_ext_bks \
+    -key $dir/private/$ocspurl.key.$format \
+    -subj "$DN" -new -out $dir/csr/$ocspurl.csr.$format
+
+openssl req -text -noout -verify -in $dir/csr/$ocspurl.csr.$format
+
+</pre><a href="#section-9.1-2" class="pilcrow">¶</a>
+</div>
+</div>
+<div id="Fig_12.2">
+<div class="lang-bash sourcecode" id="section-9.1-3">
+<pre>
+
+# Create Certificate
+
+export startdate=230801000000Z  # YYMMDDHHMMSSZ
+export enddate=99991231235959Z # per IEEE 802.1AR
+openssl rand -hex $sn &gt; $dir/serial # hex 8 is minimum, 20 is maximum
+# Note 'openssl ca' does not support DER format
+openssl ca -config $dir/openssl.cnf\
+    -extensions ocsp -notext \
+    -in $dir/csr/$ocspurl.csr.$format\
+    -out $dir/certs/$ocspurl.cert.$format
+chmod 444 $dir/certs/$ocspurl.cert.$format
+
+openssl verify -CAfile $dir/certs/ca-chain.cert.$format\
+     $dir/certs/$ocspurl.cert.$format
+openssl x509 -noout -text -in $dir/certs/$ocspurl.cert.$format
+
+</pre><a href="#section-9.1-3" class="pilcrow">¶</a>
+</div>
+</div>
+</section>
+</div>
+<div id="RevokeCertOCSP">
+<section id="section-9.2">
+        <h3 id="name-revoke-a-certificate-2">
+<a href="#section-9.2" class="section-number selfRef">9.2. </a><a href="#name-revoke-a-certificate-2" class="section-name selfRef">Revoke a Certificate</a>
+        </h3>
+<p id="section-9.2-1">
+ Revoke the certificate as in <a href="#RevokeCert" class="auto internal xref">Section 8.2</a>.  The
+ OCSP responder SHOULD detect the flag change in index.txt and, when
+ queried respond appropriately.<a href="#section-9.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="TestingOCSP">
+<section id="section-9.3">
+        <h3 id="name-testing-ocsp-with-openssl">
+<a href="#section-9.3" class="section-number selfRef">9.3. </a><a href="#name-testing-ocsp-with-openssl" class="section-name selfRef">Testing OCSP with Openssl</a>
+        </h3>
+<p id="section-9.3-1">
+ OpenSSL provides a simple OCSP service that can be used to test the
+ OCSP certificate and revocation process (Note that this only reads
+ the index.txt to get the certificate status at startup).<a href="#section-9.3-1" class="pilcrow">¶</a></p>
+<p id="section-9.3-2">
+ In a terminal window, set variables dir and ocspurl (examples
+ below), then run the simple OCSP service:<a href="#section-9.3-2" class="pilcrow">¶</a></p>
+<div id="Fig_13">
+<div class="lang-bash sourcecode" id="section-9.3-3">
+<pre>
+
+dir=/root/ca/intermediate
+ocspurl=ocsp.htt-consult.com
+
+openssl ocsp -port 2560 -text\
+      -index $dir/index.txt \
+      -CA $dir/certs/ca-chain.cert.pem \
+      -rkey $dir/private/$ocspurl.key.pem \
+      -rsigner $dir/certs/$ocspurl.cert.pem \
+      -nrequest 1
+
+</pre><a href="#section-9.3-3" class="pilcrow">¶</a>
+</div>
+</div>
+<p id="section-9.3-4">
+ In another window, test out a certificate status with:<a href="#section-9.3-4" class="pilcrow">¶</a></p>
+<div id="Fig_14">
+<div class="lang-bash sourcecode" id="section-9.3-5">
+<pre>
+
+targetcert=$serverfqdn
+#targetcert=$clientemail
+#targetcert=$DevID
+
+openssl ocsp -CAfile $dir/certs/ca-chain.cert.pem \
+      -url http://127.0.0.1:2560 -resp_text\
+      -issuer $dir/certs/intermediate.cert.pem \
+      -cert $dir/certs/$targetcert.cert.pem
+
+</pre><a href="#section-9.3-5" class="pilcrow">¶</a>
+</div>
+</div>
+<p id="section-9.3-6">
+ Revoke the certificate, <a href="#RevokeCert" class="auto internal xref">Section 8.2</a>, restart the
+ test Responder again as above, then check the certificate status.<a href="#section-9.3-6" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="Footnotes">
+<section id="section-10">
+      <h2 id="name-footnotes">
+<a href="#section-10" class="section-number selfRef">10. </a><a href="#name-footnotes" class="section-name selfRef">Footnotes</a>
+      </h2>
+<p id="section-10-1">
+ Creating this document was a real education in the state of
+ openSSL, X.509 certificate guidance, and just general level of
+ certificate awareness.  Here are a few short notes.<a href="#section-10-1" class="pilcrow">¶</a></p>
+<div id="SerNum">
+<section id="section-10.1">
+        <h3 id="name-certificate-serial-number">
+<a href="#section-10.1" class="section-number selfRef">10.1. </a><a href="#name-certificate-serial-number" class="section-name selfRef">Certificate Serial Number</a>
+        </h3>
+<p id="section-10.1-1">
+ The certificate serial number's role is to provide yet another way
+ to maintain uniqueness of certificates within a PKI as well as a
+ way to index them in a data store.  It has taken on other roles,
+ most notably as a defense.<a href="#section-10.1-1" class="pilcrow">¶</a></p>
+<p id="section-10.1-2">
+ The CABForum guideline for a public CA is for the serial number to 
+ be a random number at least 8 octets long and no longer than 20 
+ bytes. By default, openssl makes self-signed certificates with 8 
+ octet serial numbers.  This guide uses openssl's RAND function to 
+ generate the random value and pipe it into the -set_serial option. 
+ This number MAY have the first bit as a ONE; the DER encoding rules 
+ prepend such numbers with 0x00.  Thus increasing the actual 
+ certificate size by a byte.<a href="#section-10.1-2" class="pilcrow">¶</a></p>
+<p id="section-10.1-3">
+ An 8-byte serial number with the first bit of zero can be generated 
+ by limiting the random generation to less than 2^63:<a href="#section-10.1-3" class="pilcrow">¶</a></p>
+<div id="Fig_15">
+<div class="lang-bash sourcecode" id="section-10.1-4">
+<pre>
+
+printf "%016X\n" $(shuf -rn 1 -i 1-9223372036854775807 \
+--random-source=/dev/urandom) &gt; $dir/serial
+
+# or
+
+printf "%016X\n" $((16#$(openssl rand -hex 8) &amp; 0x7fffffffffffffff))\
+ &gt; $dir/serial
+
+</pre><a href="#section-10.1-4" class="pilcrow">¶</a>
+</div>
+</div>
+<p id="section-10.1-5">
+ A private CA need not follow the CABForum rules and can use
+ anything number for the serial number.  For example, the root CA
+ (which has no security risks mitigated by using a random value)
+ could use '1' as its serial number.  Intermediate and End Entity
+ certificate serial numbers can also be of any value if a strong
+ hash, like SHA256 used here.  A value of 4 for ns would provide a
+ sufficient population so that a CA of 10,000 EE certificates will
+ have only a 1.2% probability of a collision.  For only 1,000
+ certificates the probability drops to 0.012%.<a href="#section-10.1-5" class="pilcrow">¶</a></p>
+<p id="section-10.1-6">
+ The following was proposed on the openssl-user list as an
+ alternative to using the RAND function:<a href="#section-10.1-6" class="pilcrow">¶</a></p>
+<p id="section-10.1-7">
+ Keep k bits (k/8 octets) long serial numbers for all your
+ certificates, chose a block cipher operating on blocks of k bits,
+ and operate this block cipher in CTR mode, with a proper secret key
+ and secret starting counter. That way, no collision detection is
+ necessary, you’ll be able to generate 2^(k/2) unique k bits longs
+ serial numbers (in fact, you can generate 2^k unique serial
+ numbers, but after 2^(k/2) you lose some security guarantees).<a href="#section-10.1-7" class="pilcrow">¶</a></p>
+<p id="section-10.1-8">
+ With 3DES, k=64, and with AES, k=128.<a href="#section-10.1-8" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="Config">
+<section id="section-10.2">
+        <h3 id="name-some-openssl-config-file-li">
+<a href="#section-10.2" class="section-number selfRef">10.2. </a><a href="#name-some-openssl-config-file-li" class="section-name selfRef">Some OpenSSL config file limitations</a>
+        </h3>
+<p id="section-10.2-1">
+ There is a bit of inconsistency in how different parts and fields
+ in the config file are used.  Environment variables can only be
+ used as values.  Some fields can have null values, others cannot.
+ The lack of allowing null fields means a script cannot feed in an
+ environment variable with value null.  In such a case, the field
+ has to be removed from the config file.<a href="#section-10.2-1" class="pilcrow">¶</a></p>
+<p id="section-10.2-2">
+ The expectation is each CA within a PKI has its own config file,
+ customized to the certificates supported by that CA.<a href="#section-10.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="SAN">
+<section id="section-10.3">
+        <h3 id="name-subjectaltname-support-now-">
+<a href="#section-10.3" class="section-number selfRef">10.3. </a><a href="#name-subjectaltname-support-now-" class="section-name selfRef">subjectAltName support now works</a>
+        </h3>
+<p id="section-10.3-1">
+ Older versions of openSSL had limitations in support for 
+ subjectAltName (SAN).  This is no longer the case.  This document 
+ sets up the SAN in the config file.  Alternatively, the "-addext" 
+ option can be used directly in the command line.<a href="#section-10.3-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="CriticalSAN">
+<section id="section-10.4">
+        <h3 id="name-certificates-with-only-subj">
+<a href="#section-10.4" class="section-number selfRef">10.4. </a><a href="#name-certificates-with-only-subj" class="section-name selfRef">Certificates with only subjectAltName</a>
+        </h3>
+<p id="section-10.4-1">
+ In <span><a href="#RFC5280" class="internal xref">RFC 5280</a> [<a href="#RFC5280" class="cite xref">RFC5280</a>]</span> (sec 4.2.1.6):  if
+ the only subject identity in the certificate is in subjectAltName,
+ then Subject MUST be empty and subjectAltName MUST be marked as
+ critical.<a href="#section-10.4-1" class="pilcrow">¶</a></p>
+<p id="section-10.4-2">
+ This can be achieved with the variable DN=/ and subjectAltName
+ (example given):<a href="#section-10.4-2" class="pilcrow">¶</a></p>
+<div id="Fig_16">
+<div class="lang-bash sourcecode" id="section-10.4-3">
+<pre>
+
+DN=/
+export subjectAltName=critical,email:postmaster@htt-consult.com
+
+</pre><a href="#section-10.4-3" class="pilcrow">¶</a>
+</div>
+</div>
+</section>
+</div>
+<div id="DER">
+<section id="section-10.5">
+        <h3 id="name-der-support-or-lack-thereof">
+<a href="#section-10.5" class="section-number selfRef">10.5. </a><a href="#name-der-support-or-lack-thereof" class="section-name selfRef">DER support, or lack thereof</a>
+        </h3>
+<p id="section-10.5-1">
+ The long, hard-fought battle with openssl to create a full DER PKI 
+ failed.  There is no facility to create a DER certificate from a 
+ DER CSR.  It just is not there in the 'openssl ca' command.  Even 
+ the 'openssl x509 -req' command cannot do this for a simple 
+ certificate.<a href="#section-10.5-1" class="pilcrow">¶</a></p>
+<p id="section-10.5-2">
+ Further, there is no 'hack' for making a certificate chain as there
+ is with PEM.  With PEM a simple concatenation of the certificates
+ create a usable certificate chain.  For DER, some recommend using
+ <span><a href="#RFC2315" class="internal xref">PKCS#7</a> [<a href="#RFC2315" class="cite xref">RFC2315</a>]</span>, where others point out that
+ this format is poorly support 'in the field', whereas <span><a href="#RFC7292" class="internal xref">PKCS#12</a> [<a href="#RFC7292" class="cite xref">RFC7292</a>]</span> works for them.<a href="#section-10.5-2" class="pilcrow">¶</a></p>
+<p id="section-10.5-3">
+ Finally, openssl does support converting a PEM certificate to DER:<a href="#section-10.5-3" class="pilcrow">¶</a></p>
+<div id="Fig_17">
+<div class="lang-bash sourcecode" id="section-10.5-4">
+<pre>
+
+openssl x509 -outform der -in certificate.pem -out certificate.der
+
+</pre><a href="#section-10.5-4" class="pilcrow">¶</a>
+</div>
+</div>
+<p id="section-10.5-5">
+ This should also work for the keypair.  However, in a highly
+ constrained device it may make more sense to just store the raw
+ keypair in the device's very limited secure storage.<a href="#section-10.5-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="IANA">
+<section id="section-11">
+      <h2 id="name-iana-considerations">
+<a href="#section-11" class="section-number selfRef">11. </a><a href="#name-iana-considerations" class="section-name selfRef">IANA Considerations</a>
+      </h2>
+<p id="section-11-1">
+        TBD.  May be nothing for IANA.<a href="#section-11-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<section id="section-12">
+      <h2 id="name-security-considerations">
+<a href="#section-12" class="section-number selfRef">12. </a><a href="#name-security-considerations" class="section-name selfRef">Security Considerations</a>
+      </h2>
+<div id="Randomness">
+<section id="section-12.1">
+        <h3 id="name-adequate-randomness">
+<a href="#section-12.1" class="section-number selfRef">12.1. </a><a href="#name-adequate-randomness" class="section-name selfRef">Adequate Randomness</a>
+        </h3>
+<p id="section-12.1-1">
+ Creating certificates takes a lot of random numbers.  A good source 
+ of random numbers is critical.  <span><a href="#WeakKeys" class="internal xref">Studies</a> [<a href="#WeakKeys" class="cite xref">WeakKeys</a>]</span> have found excessive amount of 
+ certificates, all with the same keys due to bad randomness on the 
+ generating systems.  The amount of entropy available for these 
+ random numbers can be tested.  On Fedora/Centos and most Linux 
+ systems use:<a href="#section-12.1-1" class="pilcrow">¶</a></p>
+<div id="Fig_18">
+<div class="lang-bash sourcecode" id="section-12.1-2">
+<pre>
+
+cat /proc/sys/kernel/random/entropy_avail
+
+</pre><a href="#section-12.1-2" class="pilcrow">¶</a>
+</div>
+</div>
+<p id="section-12.1-3">
+ If the value is low (below 1000) check your system's randomness
+ source.  Is rng-tools installed?  Consider adding an entropy
+ collection service like haveged from issihosts.com/haveged.<a href="#section-12.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="Theft">
+<section id="section-12.2">
+        <h3 id="name-key-pair-theft">
+<a href="#section-12.2" class="section-number selfRef">12.2. </a><a href="#name-key-pair-theft" class="section-name selfRef">Key pair Theft</a>
+        </h3>
+<p id="section-12.2-1">
+ During the certificate creation, particularly during keypair
+ generation, the files are vulnerable to theft.  This can be
+ mitigate using umask.  Before using openssl, set umask:<a href="#section-12.2-1" class="pilcrow">¶</a></p>
+<div id="Fig_19">
+<div class="lang-bash sourcecode" id="section-12.2-2">
+<pre>
+
+restore_mask=$(umask -p)
+umask 077
+
+</pre><a href="#section-12.2-2" class="pilcrow">¶</a>
+</div>
+</div>
+<p id="section-12.2-3">
+ Afterwards, restore it with:<a href="#section-12.2-3" class="pilcrow">¶</a></p>
+<div id="Fig_20">
+<div class="lang-bash sourcecode" id="section-12.2-4">
+<pre>
+
+$restore_mask
+
+</pre><a href="#section-12.2-4" class="pilcrow">¶</a>
+</div>
+</div>
+<p id="section-12.2-5">
+ or just close the shell that was used, and start a new one.  (The 
+ -p option to umask is a bash-ism)<a href="#section-12.2-5" class="pilcrow">¶</a></p>
+<p id="section-12.2-6">
+ There is nothing in these recipes that requires super-user on the 
+ system creating the certificates.  Provided that adequate 
+ randomness is available, a virtual machine or container is entirely 
+ appropriate.  Containers tend to have better access to randomness 
+ than virtual machines.<a href="#section-12.2-6" class="pilcrow">¶</a></p>
+<p id="section-12.2-7">
+ The scripts and configuration files and in particular, private 
+ keys, may be kept offline on a USB key for instance, and loaded 
+ when needed.<a href="#section-12.2-7" class="pilcrow">¶</a></p>
+<p id="section-12.2-8">
+ The OCSP server needs to be online and available to all clients 
+ that will use the certificates. This may mean available on the 
+ Internet.  A firewall can protect the OCSP server, and 
+ port-forwards and/or ACL rules can restrict access to just the OCSP 
+ port.  OCSP artifacts are signed by a key designed for that purpose 
+ only so do not require that the associated CA key be available 
+ online.<a href="#section-12.2-8" class="pilcrow">¶</a></p>
+<p id="section-12.2-9">
+ Generating new CRLs, however, requires that the CA signing key be 
+ online, which is one of the reasons for creating an intermediate 
+ CA.<a href="#section-12.2-9" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+<section id="section-13">
+      <h2 id="name-acknowledgments">
+<a href="#section-13" class="section-number selfRef">13. </a><a href="#name-acknowledgments" class="section-name selfRef">Acknowledgments</a>
+      </h2>
+<p id="section-13-1">
+ This work was jump started by the excellent RSA pki guide by Jamie
+ Nguyen.  The openssl-user mailing list, with its many supportive
+ experts; in particular:  Rich Salz, Jakob Bolm, Viktor Dukhovni,
+ and Erwann Abalea, was of immense help as was the openssl man pages
+ website.<a href="#section-13-1" class="pilcrow">¶</a></p>
+<p id="section-13-2">
+ Finally, "Professor Google" was always ready to point to answers to
+ questions like: "openssl subjectAltName on the command line".  And
+ the Professor, it seems, never tires of answering even trivial
+ questions.<a href="#section-13-2" class="pilcrow">¶</a></p>
+<p id="section-13-3">
+ The openssl-user mailing list, with its many supportive experts, 
+ was of immense help in the nuance differences between ECDSA and 
+ EdDSA.<a href="#section-13-3" class="pilcrow">¶</a></p>
+<p id="section-13-4">
+ The sourcecode blocks are structured to work with Carsten Bormann's 
+ kramdown-rfc-extract-sourcecode script.  At the time of 
+ publication, this script was part of the gem kramdown-rfc 
+ collection.<a href="#section-13-4" class="pilcrow">¶</a></p>
+</section>
+<section id="section-14">
+      <h2 id="name-references">
+<a href="#section-14" class="section-number selfRef">14. </a><a href="#name-references" class="section-name selfRef">References</a>
+      </h2>
+<section id="section-14.1">
+        <h3 id="name-normative-references">
+<a href="#section-14.1" class="section-number selfRef">14.1. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+        </h3>
+<dl class="references">
+<dt id="RFC2119">[RFC2119]</dt>
+        <dd>
+<span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03" class="refDate">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc2119">https://www.rfc-editor.org/info/rfc2119</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8174">[RFC8174]</dt>
+      <dd>
+<span class="refAuthor">Leiba, B.</span>, <span class="refTitle">"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 8174</span>, <span class="seriesInfo">DOI 10.17487/RFC8174</span>, <time datetime="2017-05" class="refDate">May 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc8174">https://www.rfc-editor.org/info/rfc8174</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+<section id="section-14.2">
+        <h3 id="name-informative-references">
+<a href="#section-14.2" class="section-number selfRef">14.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
+        </h3>
+<dl class="references">
+<dt id="I-D.moskowitz-drip-dki">[drip-dki]</dt>
+        <dd>
+<span class="refAuthor">Moskowitz, R.</span> and <span class="refAuthor">S. W. Card</span>, <span class="refTitle">"The DRIP DET public Key Infrastructure"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-moskowitz-drip-dki-07</span>, <time datetime="2023-07-10" class="refDate">10 July 2023</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-moskowitz-drip-dki-07">https://datatracker.ietf.org/doc/html/draft-moskowitz-drip-dki-07</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="I-D.moskowitz-ecdsa-pki">[ecdsa-pki]</dt>
+        <dd>
+<span class="refAuthor">Moskowitz, R.</span>, <span class="refAuthor">Birkholz, H.</span>, <span class="refAuthor">Xia, L.</span>, and <span class="refAuthor">M. Richardson</span>, <span class="refTitle">"Guide for building an ECC pki"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-moskowitz-ecdsa-pki-10</span>, <time datetime="2021-01-31" class="refDate">31 January 2021</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-moskowitz-ecdsa-pki-10">https://datatracker.ietf.org/doc/html/draft-moskowitz-ecdsa-pki-10</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="DOI_10.1109_IEEESTD.2018.8423794">[IEEE 802.1AR]</dt>
+        <dd>
+<span class="refAuthor">IEEE</span>, <span class="refTitle">"IEEE Standard for Local and Metropolitan Area Networks - Secure Device Identity"</span>, <span class="seriesInfo">DOI 10.1109/ieeestd.2018.8423794</span>, <time datetime="2018-07-31" class="refDate">31 July 2018</time>, <span>&lt;<a href="http://dx.doi.org/10.1109/ieeestd.2018.8423794">http://dx.doi.org/10.1109/ieeestd.2018.8423794</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="DOI_10.6028_NIST.FIPS.186-5">[NIST.FIPS.186-5]</dt>
+        <dd>
+<span class="refAuthor">Moody, D.</span> and <span class="refAuthor">National Institute of Standards and Technology</span>, <span class="refTitle">"Digital Signature Standard (DSS)"</span>, <span class="seriesInfo">DOI 10.6028/nist.fips.186-5</span>, <time datetime="2023" class="refDate">2023</time>, <span>&lt;<a href="http://dx.doi.org/10.6028/nist.fips.186-5">http://dx.doi.org/10.6028/nist.fips.186-5</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC2315">[RFC2315]</dt>
+        <dd>
+<span class="refAuthor">Kaliski, B.</span>, <span class="refTitle">"PKCS #7: Cryptographic Message Syntax Version 1.5"</span>, <span class="seriesInfo">RFC 2315</span>, <span class="seriesInfo">DOI 10.17487/RFC2315</span>, <time datetime="1998-03" class="refDate">March 1998</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc2315">https://www.rfc-editor.org/info/rfc2315</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC4108">[RFC4108]</dt>
+        <dd>
+<span class="refAuthor">Housley, R.</span>, <span class="refTitle">"Using Cryptographic Message Syntax (CMS) to Protect Firmware Packages"</span>, <span class="seriesInfo">RFC 4108</span>, <span class="seriesInfo">DOI 10.17487/RFC4108</span>, <time datetime="2005-08" class="refDate">August 2005</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc4108">https://www.rfc-editor.org/info/rfc4108</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC5280">[RFC5280]</dt>
+        <dd>
+<span class="refAuthor">Cooper, D.</span>, <span class="refAuthor">Santesson, S.</span>, <span class="refAuthor">Farrell, S.</span>, <span class="refAuthor">Boeyen, S.</span>, <span class="refAuthor">Housley, R.</span>, and <span class="refAuthor">W. Polk</span>, <span class="refTitle">"Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile"</span>, <span class="seriesInfo">RFC 5280</span>, <span class="seriesInfo">DOI 10.17487/RFC5280</span>, <time datetime="2008-05" class="refDate">May 2008</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc5280">https://www.rfc-editor.org/info/rfc5280</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7292">[RFC7292]</dt>
+        <dd>
+<span class="refAuthor">Moriarty, K., Ed.</span>, <span class="refAuthor">Nystrom, M.</span>, <span class="refAuthor">Parkinson, S.</span>, <span class="refAuthor">Rusch, A.</span>, and <span class="refAuthor">M. Scott</span>, <span class="refTitle">"PKCS #12: Personal Information Exchange Syntax v1.1"</span>, <span class="seriesInfo">RFC 7292</span>, <span class="seriesInfo">DOI 10.17487/RFC7292</span>, <time datetime="2014-07" class="refDate">July 2014</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc7292">https://www.rfc-editor.org/info/rfc7292</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8032">[RFC8032]</dt>
+        <dd>
+<span class="refAuthor">Josefsson, S.</span> and <span class="refAuthor">I. Liusvaara</span>, <span class="refTitle">"Edwards-Curve Digital Signature Algorithm (EdDSA)"</span>, <span class="seriesInfo">RFC 8032</span>, <span class="seriesInfo">DOI 10.17487/RFC8032</span>, <time datetime="2017-01" class="refDate">January 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc8032">https://www.rfc-editor.org/info/rfc8032</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="WeakKeys">[WeakKeys]</dt>
+      <dd>
+<span class="refAuthor">Heninger, N.H.</span>, <span class="refAuthor">Durumeric, Z.D.</span>, <span class="refAuthor">Wustrow, E.W.</span>, and <span class="refAuthor">J.A.H. Halderman</span>, <span class="refTitle">"Detection of Widespread Weak Keys in Network Devices"</span>, <time datetime="2011-07" class="refDate">July 2011</time>, <span>&lt;<a href="https://www.usenix.org/system/files/conference/usenixsecurity12/sec12-final228.pdf">https://www.usenix.org/system/files/conference/usenixsecurity12/sec12-final228.pdf</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</section>
+<div id="configfile">
+<section id="appendix-A">
+      <h2 id="name-openssl-config-file">
+<a href="#appendix-A" class="section-number selfRef">Appendix A. </a><a href="#name-openssl-config-file" class="section-name selfRef">OpenSSL config file</a>
+      </h2>
+<p id="appendix-A-1">
+ The following is the openssl.cnf file contents<a href="#appendix-A-1" class="pilcrow">¶</a></p>
+<div id="Fig_21">
+<div class="breakable lang-bash sourcecode" id="appendix-A-2">
+<pre>
+
+# OpenSSL CA configuration file.
+# Copy to `$dir/openssl.cnf`.
+
+[ ca ]
+# `man ca`
+default_ca = CA_default
+
+[ CA_default ]
+# Directory and file locations.
+dir               = $ENV::dir
+cadir             = $ENV::cadir
+format            = $ENV::format
+signprv           = $ENV::signprv
+signcert          = $ENV::signcert
+certkeyusage      = $ENV::certkeyusage
+certextkeyusage   = $ENV::certextkeyusage
+basicConstraints  = $ENV::basicConstraints
+
+certs             = $dir/certs
+crl_dir           = $dir/crl
+new_certs_dir     = $dir/newcerts
+database          = $dir/index.txt
+serial            = $dir/serial
+RANDFILE          = $dir/private/.rand
+
+# The signing key and signing certificate.
+private_key       = $cadir/private/$signprv.key.$format
+certificate       = $cadir/certs/$signcert.cert.$format
+
+# For certificate revocation lists.
+crlnumber         = $dir/crlnumber
+crl               = $dir/crl/ca.crl.pem
+crl_extensions    = crl_ext
+default_crl_days  = 30
+
+# SHA-1 is deprecated, so use SHA-2 instead.
+default_md        = sha256
+
+name_opt          = ca_default
+cert_opt          = ca_default
+default_startdate = $ENV::startdate
+default_enddate   = $ENV::enddate
+preserve          = no
+policy            = policy_loose
+copy_extensions   = copy
+
+[ policy_loose ]
+# Allow the intermediate CA to sign a more
+#   diverse range of certificates.
+# See the POLICY FORMAT section of the `ca` man page.
+countryName             = optional
+stateOrProvinceName     = optional
+localityName            = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = optional
+UID                     = optional
+serialNumber            = optional
+
+
+[ req ]
+# Options for the `req` tool (`man req`).
+distinguished_name  = req_distinguished_name
+string_mask         = utf8only
+#req_extensions      = req_ext
+default_crl_days  = 30
+
+# SHA-1 is deprecated, so use SHA-2 instead.
+default_md          = sha256
+
+# Extension to add when the -x509 option is used.
+x509_extensions     = v3_ca
+
+[ req_distinguished_name ]
+# See &lt;https://en.wikipedia.org/wiki/Certificate_signing_request&gt;.
+#countryName                     = Country Name (2 letter code)
+#stateOrProvinceName             = State or Province Name
+#localityName                    = Locality Name
+#0.organizationName              = Organization Name
+#organizationalUnitName          = Organizational Unit Name
+commonName                      = Common Name
+
+[ req_ext ]
+
+[ req_ext_bkes ]
+basicConstraints = $ENV::basicConstraints
+keyUsage = $ENV::certkeyusage
+extendedKeyUsage = $ENV::certextkeyusage
+subjectAltName = $ENV::subjectAltName
+
+[ req_ext_bke ]
+basicConstraints = $ENV::basicConstraints
+keyUsage = $ENV::certkeyusage
+extendedKeyUsage = $ENV::certextkeyusage
+
+[ req_ext_bks ]
+basicConstraints = $ENV::basicConstraints
+keyUsage = $ENV::certkeyusage
+subjectAltName = $ENV::subjectAltName
+
+[ req_ext_bk ]
+basicConstraints = $ENV::basicConstraints
+keyUsage = $ENV::certkeyusage
+
+[ req_ext_8021AR ]
+basicConstraints = $ENV::basicConstraints
+keyUsage = $ENV::certkeyusage
+subjectAltName = $ENV::subjectAltName
+
+[ hmodname ]
+hwType = OID:$ENV::hwType
+hwSerialNum = FORMAT:HEX,OCT:$ENV::hwSerialNum
+
+[ v3_ca ]
+# Extensions for a typical CA (`man x509v3_config`).
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always
+basicConstraints = $ENV::basicConstraints
+keyUsage = $ENV::certkeyusage
+
+[ v3_intermediate_ca ]
+# Extensions for a typical intermediate CA (`man x509v3_config`).
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always
+# basicConstraints = $ENV::basicConstraints
+# keyUsage = $ENV::certkeyusage
+# subjectAltName = $ENV::subjectAltName
+
+[ usr_cert ]
+# Extensions for client certificates (`man x509v3_config`).
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always
+# uncomment the following if the ENV variables set
+# crlDistributionPoints = $ENV::crlDP
+# authorityInfoAccess = $ENV::ocspIAI
+
+[ usr_req ]
+# Extensions for client certificates (`man x509v3_config`).
+subjectAltName = critical, $ENV::subjectAltName
+
+
+[ server_cert ]
+# Extensions for server certificates (`man x509v3_config`).
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always
+# uncomment the following if the ENV variables set
+# crlDistributionPoints = $ENV::crlDP
+# authorityInfoAccess = $ENV::ocspIAI
+
+[ 8021ar_idevid ]
+# Extensions for IEEE 802.1AR iDevID
+#   certificates (`man x509v3_config`).
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always
+# uncomment the following if the ENV variables set
+# crlDistributionPoints = $ENV::crlDP
+# authorityInfoAccess = $ENV::ocspIAI
+
+[ crl_ext ]
+# Extension for CRLs (`man x509v3_config`).
+authorityKeyIdentifier=keyid:always
+
+[ ocsp ]
+# Extension for OCSP signing certificates (`man ocsp`).
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always
+
+</pre><a href="#appendix-A-2" class="pilcrow">¶</a>
+</div>
+</div>
+</section>
+</div>
+<div id="authors-addresses">
+<section id="appendix-B">
+      <h2 id="name-authors-addresses">
+<a href="#name-authors-addresses" class="section-name selfRef">Authors' Addresses</a>
+      </h2>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Robert Moskowitz</span></div>
+<div dir="auto" class="left"><span class="org">HTT Consulting</span></div>
+<div dir="auto" class="left"><span class="locality">Oak Park</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:rgm@labs.htt-consult.com" class="email">rgm@labs.htt-consult.com</a>
+</div>
+</address>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Henk Birkholz</span></div>
+<div dir="auto" class="left"><span class="org">Fraunhofer SIT</span></div>
+<div dir="auto" class="left"><span class="street-address">Rheinstrasse 75</span></div>
+<div dir="auto" class="left">
+<span class="postal-code">64295</span> <span class="locality">Darmstadt</span>
+</div>
+<div dir="auto" class="left"><span class="country-name">Germany</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:henk.birkholz@sit.fraunhofer.de" class="email">henk.birkholz@sit.fraunhofer.de</a>
+</div>
+</address>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Michael C. Richardson</span></div>
+<div dir="auto" class="left"><span class="org">Sandelman Software Works</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:mcr+ietf@sandelman.ca" class="email">mcr+ietf@sandelman.ca</a>
+</div>
+<div class="url">
+<span>URI:</span>
+<a href="http://www.sandelman.ca/" class="url">http://www.sandelman.ca/</a>
+</div>
+</address>
+</section>
+</div>
+<script>const toc = document.getElementById("toc");
+toc.querySelector("h2").addEventListener("click", e => {
+  toc.classList.toggle("active");
+});
+toc.querySelector("nav").addEventListener("click", e => {
+  toc.classList.remove("active");
+});
+</script>
+</body>
+</html>

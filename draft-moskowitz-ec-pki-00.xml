@@ -259,19 +259,13 @@ format    : File encoding:  PEM or DER
 algorithm : EC algorithm used in certificates
 
 sn        : Serial Number length in bytes
-               For a public CA the range is 8 to 19
+               For a public CA the range is 8 to 20
 
 DN        : Distinguished Name
                Policy is LOOSE; Recommended at least
                providing Common Name
 ]]>
 </artwork>
-<t>
-    The Serial Number length for a public PKI ranges from 8 to 19
-    bytes.  The use of 19 rather than 20 is to accommodate the hex
-    representation of the Serial Number.  If it has a one in the high
-    order bit, DER encoding rules will place a 0x00 in front.
-</t>
 <t>
 	The DN and SAN fields are examples.  Change them to appropriate
 	values.  If you leave one blank, it will be left out of the
@@ -366,7 +360,7 @@ openssl req -config $dir/openssl.cnf -reqexts req_ext_bk\
 openssl req -text -noout -verify\
     -in $dir/csr/ca.csr.$format
 
-openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 19 is maximum
+openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 20 is maximum
 
 openssl ca -config $dir/openssl.cnf\
     -extensions v3_ca -notext \
@@ -400,7 +394,7 @@ cd $dir
 mkdir certs crl csr newcerts private
 chmod 700 private
 touch index.txt
-sn=8 # hex 8 is minimum, 19 is maximum
+sn=8 # hex 8 is minimum, 20 is maximum
 echo 1000 > $dir/crlnumber
 ]]>
 </sourcecode>
@@ -478,7 +472,7 @@ openssl req -text -noout -verify -inform $format\
 
 export startdate=230801000000Z  # YYMMDDHHMMSSZ
 export enddate=20340731000000Z  # YYYYMMDDHHMMSSZ
-openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 19 is maximum
+openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 20 is maximum
 # Note 'openssl ca' does not support DER format
 
 openssl ca -config $cadir/openssl.cnf\
@@ -553,7 +547,7 @@ openssl req -text -noout -verify -in $dir/csr/$serverfqdn.csr.$format
 <![CDATA[
 export startdate=230801000000Z  # YYMMDDHHMMSSZ
 export enddate=240731000000Z  # YYMMDDHHMMSSZ
-openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 19 is maximum
+openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 20 is maximum
 # Note 'openssl ca' does not support DER format
 openssl ca -config $cadir/openssl.cnf\
     -extensions server_cert -notext \
@@ -618,7 +612,7 @@ openssl req -text -noout -verify\
 <![CDATA[
 export startdate=230801000000Z  # YYMMDDHHMMSSZ
 export enddate=240731000000Z  # YYMMDDHHMMSSZ
-openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 19 is maximum
+openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 20 is maximum
 # Note 'openssl ca' does not support DER format
 openssl ca -config $dir/openssl.cnf\
     -extensions usr_cert -notext \
@@ -705,7 +699,7 @@ openssl asn1parse -i -strparse 169 -in $dir/csr/$DevID.csr.pem
 <![CDATA[
 export startdate=230801000000Z  # YYMMDDHHMMSSZ
 export enddate=99991231235959Z # per IEEE 802.1AR
-openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 19 is maximum
+openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 20 is maximum
 # Note 'openssl ca' does not support DER format
 openssl ca -config $dir/openssl.cnf\
     -extensions 8021ar_idevid -notext \
@@ -831,7 +825,7 @@ openssl req -text -noout -verify -in $dir/csr/$ocspurl.csr.$format
 
 export startdate=230801000000Z  # YYMMDDHHMMSSZ
 export enddate=99991231235959Z # per IEEE 802.1AR
-openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 19 is maximum
+openssl rand -hex $sn > $dir/serial # hex 8 is minimum, 20 is maximum
 # Note 'openssl ca' does not support DER format
 openssl ca -config $dir/openssl.cnf\
     -extensions ocsp -notext \
@@ -910,14 +904,14 @@ openssl ocsp -CAfile $dir/certs/ca-chain.cert.pem \
 	most notably as a defense.
 </t>
 <t>
-	The CABForum guideline for a public CA is for the serial number to
-	be a random number at least 8 octets long and no longer than 20
-	bytes. By default, openssl makes self-signed certificates with 8
-	octet serial numbers.  This guide uses openssl's RAND function to
-	generate the random value and pipe it into the -set_serial option.
-	This number MAY have the first bit as a ONE; the DER encoding rules
-	prepend such numbers with 0x00.  Thus the limit of '19' for the
-	variable 'ns'.
+	The CABForum guideline for a public CA is for the serial number to 
+	be a random number at least 8 octets long and no longer than 20 
+	bytes. By default, openssl makes self-signed certificates with 8 
+	octet serial numbers.  This guide uses openssl's RAND function to 
+	generate the random value and pipe it into the -set_serial option. 
+	This number MAY have the first bit as a ONE; the DER encoding rules 
+	prepend such numbers with 0x00.  Thus increasing the actual 
+	certificate size by a byte.
 </t>
 <t>
 	An 8-byte serial number with the first bit of zero can be generated 
